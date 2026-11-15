@@ -5,9 +5,26 @@ editor and terminal. It does not require a terminal-based OpenCode agent server.
 
 Repository: https://github.com/bharti1233/Hmx-coder
 
-Debug APKs are built by the **HMX Debug APK** GitHub Actions workflow and uploaded
-as workflow artifacts when the build succeeds. Initial CI validation is pending.
-No local APK builds are part of this development workflow.
+## Build status
+
+[![HMX Debug APK](https://github.com/bharti1233/Hmx-coder/actions/workflows/debug-apk.yml/badge.svg)](https://github.com/bharti1233/Hmx-coder/actions/workflows/debug-apk.yml)
+
+The **HMX Debug APK** workflow runs on GitHub-hosted Ubuntu with JDK 21, Gradle 9.7.0,
+Android platform 37, build-tools 37.0.0, NDK 27.2.12479018 and `glslc`. It:
+
+1. builds the debug APK (`:app:assembleDebug`);
+2. uploads `HMX-Coder-AI-debug.apk`, the matching GPU runtime packages, `SHA256SUMS.txt`
+   and `SOURCE_COMMIT.txt` as the `HMX-Coder-AI-debug-<sha>` artifact;
+3. runs `:app:testDebugUnitTest` and uploads the HTML/XML reports as
+   `HMX-build-reports-<sha>`.
+
+Get the APK from the **Artifacts** section of a successful run. The verified run is
+<https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579>: 2252 unit tests,
+0 failures, APK 102,822,373 bytes.
+
+No local APK builds are part of this workflow. **The debug APK has not been installed
+or launched on a device**; device behaviour is unverified. It is a development build,
+signed with the debug key.
 
 See [source provenance](HMX-UPSTREAM.md), [audit findings](HMX-SOURCE-AUDIT-FINDINGS.md),
 and [native architecture](HMX-NATIVE-ARCHITECTURE-DECISION.md).

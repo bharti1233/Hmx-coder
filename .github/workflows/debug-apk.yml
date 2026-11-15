@@ -59,23 +59,6 @@ jobs:
           sudo apt-get install -y glslc
           glslc --version
 
-      - name: Probe plugin repositories
-        continue-on-error: true
-        run: |
-          set -x
-          curl -sS -o /dev/null -w 'central marker pom: %{http_code}\n' \
-            https://repo1.maven.org/maven2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.10/org.jetbrains.kotlin.android.gradle.plugin-2.4.10.pom || true
-          curl -sS -o /dev/null -w 'portal marker pom: %{http_code}\n' \
-            https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.10/org.jetbrains.kotlin.android.gradle.plugin-2.4.10.pom || true
-          curl -sS -o /dev/null -w 'google agp pom: %{http_code}\n' \
-            https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/9.3.1/gradle-9.3.1.pom || true
-          env | grep -i proxy || true
-          set +e
-          bash ./gradlew help --no-daemon --info --stacktrace > /tmp/plugin-probe.log 2>&1
-          echo "probe exit: $?"
-          grep -E "Resource missing|HTTP GET|Received status|Could not|Cached resource" /tmp/plugin-probe.log | head -80
-          tail -40 /tmp/plugin-probe.log
-
       - name: Build debug APK
         run: bash ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2
 
@@ -86,7 +69,7 @@ jobs:
           find app/build/outputs/apk/debug -name '*.apk' -exec cp -v {} dist/HMX-Coder-AI-debug.apk \; || true
           find app/build/outputs/gpuRuntime/debug -name '*.gz' -exec cp -v {} dist/ \; || true
           if [ -f dist/HMX-Coder-AI-debug.apk ]; then
-            sha256sum dist/* > dist/SHA256SUMS.txt
+            (cd dist && sha256sum * > SHA256SUMS.txt)
             git rev-parse HEAD > dist/SOURCE_COMMIT.txt
           else
             echo "No debug APK was produced" > dist/BUILD-FAILED.txt
@@ -104,7 +87,6 @@ jobs:
 
       - name: Unit tests
         if: always()
-        continue-on-error: true
         run: bash ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace --max-workers=2
 
       - name: Upload diagnostic reports

@@ -32,14 +32,36 @@ The symlink fix narrows one resolution boundary. It is not a complete sandbox: d
 - Internal Kotlin package retained for a small initial diff.
 - MIT copyright preserved.
 - Debug APK and matching GPU packages uploaded as GitHub Actions artifacts.
-- Unit tests run remotely before APK assembly; logs/reports retained on failure.
+- Unit tests run after APK assembly; the APK artifact is uploaded first, so a test failure still leaves a downloadable build while the job reports failure.
 - No release publishing or upstream write credentials in CI.
 
 ## Validation state
 
-Static checks: source/configuration review and Git whitespace validation only.
-Unit tests: pending remote CI.
-APK compilation: pending remote CI.
-Device behavior: unverified.
+Static checks: source/configuration review, Git whitespace validation, workflow YAML parse check.
+Unit tests: 2252 executed, 0 failures, 0 errors, 0 skipped (GitHub Actions `testDebugUnitTest`).
+APK compilation: `:app:assembleDebug` succeeded; artifact uploaded.
+Device behavior: unverified. Nothing has been installed or launched.
 
-Authenticated push is blocked until secure GitHub credentials are available in the environment. The credential pasted into chat was not embedded in code or workflow files. A successful build must be evidenced by a GitHub Actions run URL and artifact; no such run has occurred yet.
+### Evidence
+
+- Run: <https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579> (commit `b97821ad856b3fa4545ce6ef4ce6898acad03611`, conclusion `success`).
+- Artifacts: `HMX-Coder-AI-debug-b97821a…` (85,752,207 bytes) and `HMX-build-reports-b97821a…`.
+- APK inside the artifact: `HMX-Coder-AI-debug.apk`, 102,822,373 bytes.
+
+Checks performed on the downloaded artifact (not on a device):
+
+- `unzip -t` reported no errors; the archive contains 23 `classes*.dex` files, `AndroidManifest.xml`, `resources.arsc`, and native libraries for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`.
+- The binary manifest string pool contains `com.hmx.coder.debug` and the `hmxcoder` scheme.
+- `resources.arsc` contains the `HMX Coder AI Debug` label.
+- An APK Signing Block is present (v2+ signature; the debug key is used, as this is a debug build).
+
+Earlier runs in the same workflow failed for CI configuration reasons, not source reasons: the retired `setup-android@v3` default `tools` package, a workflow heredoc that broke YAML block indentation, and a transient plugin-repository resolution failure on the first Gradle run. All three were corrected.
+
+Two unit tests failed on the first successful compile: the MCP OAuth URL assertion still expected the old `androidharness` callback scheme, and a Whisper client test waited only 3 seconds for a loopback handshake. Both were fixed; the 3-second assertion that the client actually closes the call was left intact.
+
+### What is still not proven
+
+- Compilation on a device or emulator, installation, startup, and every runtime feature.
+- That the in-app SDK/toolchain installer can build projects targeting API 37, Compose, Flutter or the other listed languages.
+- Transactional rollback, sandbox isolation, and provider endpoint independence.
+
