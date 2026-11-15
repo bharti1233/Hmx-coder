@@ -33,9 +33,18 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          set -x
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 2 -type f -name sdkmanager | sort | tail -1)"
-          test -x "$SDKMANAGER"
+          SDKMANAGER=""
+          for candidate in \
+            "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" \
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME" -maxdepth 5 -type f -name sdkmanager 2>/dev/null | sort | tail -1)"
+          fi
+          test -n "$SDKMANAGER"
+          echo "sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           while read -r pkg; do
             [ -z "$pkg" ] && continue
@@ -43,13 +52,13 @@ jobs:
             "$SDKMANAGER" "$pkg" || echo "WARN: sdkmanager could not install $pkg"
             echo "::endgroup::"
           done <<'PKGS'
-          platform-tools
-          platforms;android-37.0
-          build-tools;37.0.0
-          ndk;27.2.12479018
-          cmake;3.22.1
-          PKGS
-          ls -1 "$ANDROID_HOME/ndk" "$ANDROID_HOME/platforms" || true
+platform-tools
+platforms;android-37.0
+build-tools;37.0.0
+ndk;27.2.12479018
+cmake;3.22.1
+PKGS
+          ls -1 "$ANDROID_HOME/ndk" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" || true
 
       - name: Install shader compiler
         run: |
