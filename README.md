@@ -18,9 +18,11 @@ Android platform 37, build-tools 37.0.0, NDK 27.2.12479018 and `glslc`. It:
 3. runs `:app:testDebugUnitTest` and uploads the HTML/XML reports as
    `HMX-build-reports-<sha>`.
 
-Get the APK from the **Artifacts** section of a successful run. The verified run is
-<https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579>: 2252 unit tests,
-0 failures, APK 102,822,373 bytes.
+Get the APK from the **Artifacts** section of a successful run. Verified runs:
+<https://github.com/bharti1233/Hmx-coder/actions/runs/43698666425> (commit `526ea53`)
+and <https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579> — 2252 unit tests,
+0 failures, APK 102,822,373 bytes. The published `SHA256SUMS.txt` was downloaded and
+re-verified against the artifact contents.
 
 No local APK builds are part of this workflow. **The debug APK has not been installed
 or launched on a device**; device behaviour is unverified. It is a development build,

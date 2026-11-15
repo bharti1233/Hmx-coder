@@ -44,8 +44,9 @@ Device behavior: unverified. Nothing has been installed or launched.
 
 ### Evidence
 
-- Run: <https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579> (commit `b97821ad856b3fa4545ce6ef4ce6898acad03611`, conclusion `success`).
-- Artifacts: `HMX-Coder-AI-debug-b97821a…` (85,752,207 bytes) and `HMX-build-reports-b97821a…`.
+- Runs: <https://github.com/bharti1233/Hmx-coder/actions/runs/43698666425> (commit `526ea53`, tip, conclusion `success`) and <https://github.com/bharti1233/Hmx-coder/actions/runs/43697555579> (commit `b97821a`, conclusion `success`).
+- Artifacts: `HMX-Coder-AI-debug-526ea53…` (85,752,495 bytes) and `HMX-build-reports-526ea53…`; the earlier run's artifacts are the same size class.
+- The APK artifact was downloaded and its bundled `SHA256SUMS.txt` verified locally: all three files reported `OK`.
 - APK inside the artifact: `HMX-Coder-AI-debug.apk`, 102,822,373 bytes.
 
 Checks performed on the downloaded artifact (not on a device):
