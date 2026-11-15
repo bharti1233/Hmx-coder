@@ -46,18 +46,11 @@ jobs:
           test -n "$SDKMANAGER"
           echo "sdkmanager: $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          while read -r pkg; do
-            [ -z "$pkg" ] && continue
+          for pkg in "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;27.2.12479018" "cmake;3.22.1"; do
             echo "::group::sdkmanager $pkg"
             "$SDKMANAGER" "$pkg" || echo "WARN: sdkmanager could not install $pkg"
             echo "::endgroup::"
-          done <<'PKGS'
-platform-tools
-platforms;android-37.0
-build-tools;37.0.0
-ndk;27.2.12479018
-cmake;3.22.1
-PKGS
+          done
           ls -1 "$ANDROID_HOME/ndk" "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" || true
 
       - name: Install shader compiler
