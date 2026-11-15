@@ -151,6 +151,7 @@ jobs:
         run: bash ./gradlew :app:assembleRelease --no-daemon --stacktrace --max-workers=2
 
       - name: Verify APKs
+        id: verify
         run: |
           set -eu
           BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
@@ -161,37 +162,63 @@ jobs:
           test -f "$debug_apk"
           test -f "$release_apk"
 
+          fail() { echo "::error::$1"; exit 1; }
+
           echo "--- signatures ---"
           "$APKSIGNER" verify --print-certs --verbose "$debug_apk" | tee /tmp/debug-signature.txt
           "$APKSIGNER" verify --print-certs --verbose "$release_apk" | tee /tmp/release-signature.txt
 
-          echo "--- release must not use the debug certificate ---"
-          if grep -q "CN=Android Debug" /tmp/release-signature.txt; then
-            echo "::error::Release APK is signed with the Android debug certificate"
-            exit 1
+          echo "--- release signature checks ---"
+          if ! grep -q "^Verifies$" /tmp/release-signature.txt; then
+            fail "apksigner did not verify the release APK"
           fi
-          grep -q "Signer #1 certificate SHA-256 digest" /tmp/release-signature.txt
+          if ! grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/release-signature.txt; then
+            fail "Release APK is not signed with APK Signature Scheme v2"
+          fi
+          if grep -qi "certificate DN:.*Android Debug" /tmp/release-signature.txt; then
+            fail "Release APK is signed with the Android debug certificate"
+          fi
+          if ! grep -q "key size (bits): 4096" /tmp/release-signature.txt; then
+            fail "Release signing key is not RSA 4096"
+          fi
 
-          echo "--- manifests ---"
+          # The two artifacts must not share a signing certificate.
+          digest_of() { grep -o 'certificate SHA-256 digest: [0-9a-f]*' "$1" | head -1 | awk '{print $NF}'; }
+          debug_digest="$(digest_of /tmp/debug-signature.txt)"
+          release_digest="$(digest_of /tmp/release-signature.txt)"
+          [ -n "$debug_digest" ] || fail "Could not read the debug signing certificate digest"
+          [ -n "$release_digest" ] || fail "Could not read the release signing certificate digest"
+          [ "$debug_digest" != "$release_digest" ] || fail "Release APK shares the debug signing certificate"
+
+          echo "--- release manifest ---"
           "$AAPT2" dump badging "$debug_apk" > /tmp/debug-badging.txt
           "$AAPT2" dump badging "$release_apk" > /tmp/release-badging.txt
-          cat /tmp/release-badging.txt | head -5
+          head -5 /tmp/release-badging.txt
 
-          assert_contains() { grep -q "$2" "$1" || { echo "::error::$3"; exit 1; }; }
-          assert_absent()   { grep -q "$2" "$1" && { echo "::error::$3"; exit 1; } || true; }
+          assert_contains() {
+            if ! grep -q "$2" "$1"; then fail "$3"; fi
+          }
+          assert_absent() {
+            if grep -q "$2" "$1"; then fail "$3"; fi
+          }
 
           assert_contains /tmp/debug-badging.txt "package: name='com.hmx.harness.debug'" "Debug package id is not com.hmx.harness.debug"
           assert_contains /tmp/release-badging.txt "package: name='com.hmx.harness'" "Release package id is not com.hmx.harness"
           assert_contains /tmp/release-badging.txt "versionCode='1'" "Release versionCode is not 1"
           assert_contains /tmp/release-badging.txt "versionName='1.0.0'" "Release versionName is not 1.0.0"
           assert_absent   /tmp/release-badging.txt "application-debuggable" "Release APK is debuggable"
+          assert_absent   /tmp/release-badging.txt "com.hmx.harness.debug" "Release APK references the debug application id"
           assert_contains /tmp/release-badging.txt "native-code: 'arm64-v8a'" "Release APK is missing arm64-v8a"
 
           echo "--- native libraries ---"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            unzip -l "$release_apk" "lib/$abi/*" | grep -q "lib/$abi/" || {
-              echo "::error::Release APK is missing native libraries for $abi"; exit 1; }
+            if ! unzip -l "$release_apk" "lib/$abi/*" | grep -q "lib/$abi/"; then
+              fail "Release APK is missing native libraries for $abi"
+            fi
           done
+
+          echo "--- release certificate (public metadata) ---"
+          grep -E "certificate DN|key algorithm|key size|SHA-256 digest" /tmp/release-signature.txt
 
       - name: Collect artifacts
         if: always()
@@ -223,7 +250,8 @@ jobs:
           retention-days: 14
 
       - name: Upload release artifact
-        if: always()
+        # A release artifact that failed verification must not be published.
+        if: always() && steps.verify.outcome == 'success' 
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: HMXHARNESS-release-${{ github.sha }}
