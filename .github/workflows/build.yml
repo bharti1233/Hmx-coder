@@ -136,11 +136,8 @@ jobs:
           sed -n '1,12p' "$RUNNER_TEMP/keytool-list.txt"
           echo "HMX_RELEASE_STORE_FILE=$keystore" >> "$GITHUB_ENV"
 
+      # The debug variant needs no signing material, so it gets none.
       - name: Build debug APK
-        env:
-          HMX_RELEASE_STORE_PASSWORD: ${{ secrets.HMX_RELEASE_STORE_PASSWORD }}
-          HMX_RELEASE_KEY_ALIAS: ${{ secrets.HMX_RELEASE_KEY_ALIAS }}
-          HMX_RELEASE_KEY_PASSWORD: ${{ secrets.HMX_RELEASE_KEY_PASSWORD }}
         run: bash ./gradlew :app:assembleDebug --no-daemon --stacktrace --max-workers=2
 
       - name: Build signed release APK
