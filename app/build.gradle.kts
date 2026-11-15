@@ -353,11 +353,19 @@ if (hasNdk) androidComponents.onVariants { variant ->
 
 // Packaging a release without the dedicated HMX key would silently produce an
 // unsigned or mis-signed artifact, so refuse to do it at execution time.
+//
+// The flag is copied into a local before the task action is defined: a task
+// action that reads script state directly makes the configuration cache
+// unsupported, which Gradle then reports as a build failure after packaging.
+val releaseSigningConfigured = releaseSigningReady
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    val signingConfigured = releaseSigningConfigured
     doFirst {
-        check(releaseSigningReady) {
-            "Release signing is not configured. Provide HMX_RELEASE_STORE_FILE, " +
-                "HMX_RELEASE_STORE_PASSWORD, HMX_RELEASE_KEY_ALIAS and HMX_RELEASE_KEY_PASSWORD."
+        if (!signingConfigured) {
+            throw GradleException(
+                "Release signing is not configured. Provide HMX_RELEASE_STORE_FILE, " +
+                    "HMX_RELEASE_STORE_PASSWORD, HMX_RELEASE_KEY_ALIAS and HMX_RELEASE_KEY_PASSWORD.",
+            )
         }
     }
 }
