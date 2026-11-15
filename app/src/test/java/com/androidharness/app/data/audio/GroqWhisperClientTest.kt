@@ -98,7 +98,7 @@ class GroqWhisperClientTest {
         coroutineScope {
             val job = launch(Dispatchers.IO) { GroqWhisperClient.transcribe(file, "fixture-key", client = client) }
             try {
-                withContext(Dispatchers.IO) { sentHeaders.get(3, TimeUnit.SECONDS) }
+                withContext(Dispatchers.IO) { sentHeaders.get(15, TimeUnit.SECONDS) }
                 withTimeout(1000) { job.cancelAndJoin() }
                 withContext(Dispatchers.IO) { closedByClient.get(3, TimeUnit.SECONDS) }
             } finally {

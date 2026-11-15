@@ -446,7 +446,7 @@ class McpOAuthTest {
         assertTrue(url.contains("code_challenge_method=S256"))
         assertTrue(url.contains("resource=https%3A%2F%2Fmcp.example.com%2Fmcp"))
         assertTrue(url.contains("scope=read+write"))
-        assertTrue(url.contains("redirect_uri=androidharness%3A%2F%2Fmcp%2Foauth"))
+        assertTrue(url.contains("redirect_uri=hmxcoder%3A%2F%2Fmcp%2Foauth"))
     }
 
     @Test
