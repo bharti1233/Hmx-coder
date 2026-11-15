@@ -83,11 +83,12 @@
         <service
             android:name=".data.env.adb.AdbPairingService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse"
+            tools:targetApi="34">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-initiated on-device wireless debugging pairing while entering the Android Settings pairing code" />
         </service>
-        <service android:name=".data.env.adb.WirelessAdbService" android:exported="false" android:foregroundServiceType="specialUse">
+        <service android:name=".data.env.adb.WirelessAdbService" android:exported="false" android:foregroundServiceType="specialUse" tools:targetApi="34">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Maintain the user-enabled on-device ADB shell connection with an explicit disconnect action" />
         </service>
