@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.0.0 — HMXHARNESS
+
+### Changed
+
+- **Rebranded to HMXHARNESS** (HMXPANEL): application label, About screen, diagnostics
+  header, chat and image-folder names, commit-message presets, FTP banner, learning
+  content, tips, notifications text and all translated string resources.
+- **Application ID and Kotlin namespace are now `com.hmx.harness`** (debug builds:
+  `com.hmx.harness.debug`). The `local_gpu` feature module is `com.hmx.harness.gpu`.
+  Main sources, tests, instrumentation tests, delivery variants, AIDL interfaces, JNI
+  class lookups and ProGuard rules moved with it.
+- **MCP OAuth callback scheme is `hmxharness://mcp/oauth`**, replacing the interim
+  `hmxcoder` scheme.
+- **Theme palette seeded with HMX electric purple** (`#7C3AED`), replacing the
+  Google-blue seed, with matching dark-scheme and inverse roles. Launcher background
+  and foreground recoloured; the glyph geometry is unchanged.
+- Version reset to `1.0.0` (versionCode 1) for the first HMXHARNESS release line.
+
+### Security
+
+- **Release builds are signed only with the dedicated HMX keystore** supplied through
+  `HMX_RELEASE_STORE_FILE`, `HMX_RELEASE_STORE_PASSWORD`, `HMX_RELEASE_KEY_ALIAS` and
+  `HMX_RELEASE_KEY_PASSWORD`. The debug-key fallback for release builds is removed and
+  `assembleRelease`/`bundleRelease` fail when the credentials are absent.
+
+### Migration notes
+
+- A different application ID means Android treats this as a new app. Data from
+  `com.androidharness.app` or the earlier `com.hmx.coder` build is **not** carried over
+  automatically; export with the old build's chat/workspace backup and import it in
+  HMXHARNESS.
+- Internal identifiers that are not branding are intentionally preserved: the
+  `.harness-scratch` app-private directory, the `/data/local/tmp/androidharness-scratch`
+  shell scratch path (existing device state), the `androidharness`/`androidharness.debug`
+  entries in the shell allowlist (compatibility), and the `androidharness-plugin` npm
+  keyword used to discover plugin bundles.
+
 ## Unreleased
 
 ### Added

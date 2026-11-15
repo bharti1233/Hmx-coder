@@ -1,6 +1,6 @@
 # Security Policy
 
-AndroidHarness can read and change files, execute programs, connect to external
+HMXHARNESS can read and change files, execute programs, connect to external
 services, and use privileged device access when enabled. Use it only with
 projects, tools, models, and services you trust. This policy describes the
 security boundaries and how to report problems; it is not a security guarantee.

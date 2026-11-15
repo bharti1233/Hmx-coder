@@ -103,7 +103,7 @@ flowchart TD
 - There is no automated check that every locale has the same key set. The current 5-key gap is intentional because those keys are non-translatable, but a future untranslated key would fall back silently.
 - The picker has no search or grouping. It is a flat list of 23 rows, and the contribution link is the only path for adding a language.
 
-Sources: [app/src/main/java/com/androidharness/app/ui/settings/LanguageSection.kt](../app/src/main/java/com/androidharness/app/ui/settings/LanguageSection.kt)#L26-L121)
+Sources: [app/src/main/java/com/hmx/harness/ui/settings/LanguageSection.kt](../app/src/main/java/com/hmx/harness/ui/settings/LanguageSection.kt)#L26-L121)
 
 ## Source files
 
@@ -116,12 +116,12 @@ Sources: [app/src/main/java/com/androidharness/app/ui/settings/LanguageSection.k
 - `app/src/main/res/values/ui_extra_strings.xml`
 - `app/src/main/res/xml/locales_config.xml`
 - `app/src/main/AndroidManifest.xml`
-- `app/src/main/java/com/androidharness/app/ui/settings/AppLanguage.kt`
-- `app/src/main/java/com/androidharness/app/ui/settings/LanguageSection.kt`
-- `app/src/main/java/com/androidharness/app/ui/settings/SettingsNavigation.kt`
-- `app/src/main/java/com/androidharness/app/MainActivity.kt`
-- `app/src/main/java/com/androidharness/app/ui/common/LeftToRightContent.kt`
-- `app/src/main/java/com/androidharness/app/ui/theme/HarnessGlassSwitch.kt`
-- `app/src/main/java/com/androidharness/app/ui/AppNav.kt`
-- `app/src/main/java/com/androidharness/app/data/env/LocaleCommand.kt`
+- `app/src/main/java/com/hmx/harness/ui/settings/AppLanguage.kt`
+- `app/src/main/java/com/hmx/harness/ui/settings/LanguageSection.kt`
+- `app/src/main/java/com/hmx/harness/ui/settings/SettingsNavigation.kt`
+- `app/src/main/java/com/hmx/harness/MainActivity.kt`
+- `app/src/main/java/com/hmx/harness/ui/common/LeftToRightContent.kt`
+- `app/src/main/java/com/hmx/harness/ui/theme/HarnessGlassSwitch.kt`
+- `app/src/main/java/com/hmx/harness/ui/AppNav.kt`
+- `app/src/main/java/com/hmx/harness/data/env/LocaleCommand.kt`
 - `app/src/main/assets/learn/guide.json`

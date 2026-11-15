@@ -1,6 +1,6 @@
 # Code of Conduct
 
-AndroidHarness is mainly built by one person, and contributors are welcome.
+HMXHARNESS is mainly built by one person, and contributors are welcome.
 These rules apply to issues, pull requests, discussions, reviews, and anywhere
 else you speak for the project.
 

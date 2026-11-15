@@ -129,15 +129,15 @@ The provider also reports the configured label through `StreamEvent.ThinkingConf
 - **`CustomReasoningSheet.onDetectLevels`**: a suspend callback supplied by the caller to query a provider for its levels.
 - **`RequestOptions.customReasoning` and `customThinkingLevels`**: maps keyed by `CustomReasoning.key`, carried across transport-only redirects by `forTransportRoute` (`Llm.kt` lines 95 to 106).
 
-Sources: [app/src/main/java/com/androidharness/app/agent/ThinkingSpecs.kt](../app/src/main/java/com/androidharness/app/agent/ThinkingSpecs.kt)#L104-L187)
+Sources: [app/src/main/java/com/hmx/harness/agent/ThinkingSpecs.kt](../app/src/main/java/com/hmx/harness/agent/ThinkingSpecs.kt)#L104-L187)
 
 ## Source files
 
-- `app/src/main/java/com/androidharness/app/agent/ThinkingLevel.kt`
-- `app/src/main/java/com/androidharness/app/agent/ThinkingSpecs.kt`
-- `app/src/main/java/com/androidharness/app/agent/CustomReasoning.kt`
-- `app/src/main/java/com/androidharness/app/llm/ModelReasoning.kt`
-- `app/src/main/java/com/androidharness/app/llm/ReasoningDefaults.kt`
-- `app/src/main/java/com/androidharness/app/llm/ReasoningMapping.kt`
-- `app/src/main/java/com/androidharness/app/ui/chat/components/CustomReasoningSheet.kt`
-- `app/src/main/java/com/androidharness/app/ui/common/ModelReasoningIcon.kt`
+- `app/src/main/java/com/hmx/harness/agent/ThinkingLevel.kt`
+- `app/src/main/java/com/hmx/harness/agent/ThinkingSpecs.kt`
+- `app/src/main/java/com/hmx/harness/agent/CustomReasoning.kt`
+- `app/src/main/java/com/hmx/harness/llm/ModelReasoning.kt`
+- `app/src/main/java/com/hmx/harness/llm/ReasoningDefaults.kt`
+- `app/src/main/java/com/hmx/harness/llm/ReasoningMapping.kt`
+- `app/src/main/java/com/hmx/harness/ui/chat/components/CustomReasoningSheet.kt`
+- `app/src/main/java/com/hmx/harness/ui/common/ModelReasoningIcon.kt`

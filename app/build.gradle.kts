@@ -21,6 +21,15 @@ plugins {
 // AGP resolves a pinned version only from <sdk>/ndk/<version>, so a foreign
 // ANDROID_NDK_HOME (CI images export one) must not enable the native block.
 val pinnedNdk = "27.2.12479018"
+
+// Release signing inputs. All four must be present for a signed release; there
+// is deliberately no fallback to the debug key and no default credential.
+val releaseStorePath = System.getenv("HMX_RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }
+val releaseStorePassword = System.getenv("HMX_RELEASE_STORE_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseKeyAlias = System.getenv("HMX_RELEASE_KEY_ALIAS")?.takeIf { it.isNotBlank() }
+val releaseKeyPassword = System.getenv("HMX_RELEASE_KEY_PASSWORD")?.takeIf { it.isNotBlank() }
+val releaseSigningReady = releaseStorePath?.let { File(it).isFile } == true &&
+    releaseStorePassword != null && releaseKeyAlias != null && releaseKeyPassword != null
 val githubBuildProperties = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
@@ -42,7 +51,7 @@ val hasNdk: Boolean = run {
 android {
     if (distributionChannel == "play") dynamicFeatures += setOf(":local_gpu")
     sourceSets.getByName("main").java.srcDir("src/${distributionChannel}Delivery/java")
-    namespace = "com.androidharness.app"
+    namespace = "com.hmx.harness"
     // The in-app picker must be able to switch languages without a Play download.
     bundle { language { enableSplit = false } }
     compileSdk = 37
@@ -59,11 +68,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.hmx.coder"
+        applicationId = "com.hmx.harness"
         minSdk = 26
         targetSdk = 36
-        versionCode = 38
-        versionName = "3.4"
+        versionCode = 1
+        versionName = "1.0.0"
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
         buildConfigField("boolean", "PLAY_DISTRIBUTION", (distributionChannel == "play").toString())
         if (hasNdk) {
@@ -90,14 +99,25 @@ android {
                 storeFile = stableDebugKey
             }
         }
+        // Release signing is supplied exclusively by the environment: CI
+        // materialises the keystore from a repository secret into a temporary
+        // file. Nothing is committed and no credential has a default.
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = file(releaseStorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
-            // Local alpha distribution: signed with the debug keystore so the
-            // APK installs without a release keystore. Swap to a dedicated
-            // signing config before any public/Play distribution.
-            signingConfig = signingConfigs.getByName("debug")
+            // Never fall back to the debug key. Without the four HMX_RELEASE_*
+            // variables the release variant stays unsigned and packaging is
+            // gated below, so a debug-signed artifact cannot be produced.
+            signingConfig = if (releaseSigningReady) signingConfigs.getByName("release") else null
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -324,4 +344,15 @@ if (hasNdk) androidComponents.onVariants { variant ->
     }
     // Play authenticates native splits itself; its base APK has no download manifest.
     if (distributionChannel == "github") variant.sources.assets?.addGeneratedSourceDirectory(prepare, PrepareGpuRuntime::assetDirectory)
+}
+
+// Packaging a release without the dedicated HMX key would silently produce an
+// unsigned or mis-signed artifact, so refuse to do it at execution time.
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    doFirst {
+        check(releaseSigningReady) {
+            "Release signing is not configured. Provide HMX_RELEASE_STORE_FILE, " +
+                "HMX_RELEASE_STORE_PASSWORD, HMX_RELEASE_KEY_ALIAS and HMX_RELEASE_KEY_PASSWORD."
+        }
+    }
 }

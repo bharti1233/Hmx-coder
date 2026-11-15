@@ -6,10 +6,10 @@
     android:viewportHeight="108">
     <!-- chevron ">" -->
     <path
-        android:fillColor="#FFFFFFFF"
+        android:fillColor="#FFC9A6FF"
         android:pathData="M32,34 L48,34 L68,54 L48,74 L32,74 L52,54 Z" />
     <!-- underscore "_" -->
     <path
-        android:fillColor="#FFFFFFFF"
+        android:fillColor="#FFC9A6FF"
         android:pathData="M58,66 L82,66 L82,74 L58,74 Z" />
 </vector>

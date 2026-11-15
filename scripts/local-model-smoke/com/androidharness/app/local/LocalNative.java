@@ -1,4 +1,4 @@
-package com.androidharness.app.local;
+package com.hmx.harness.local;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;

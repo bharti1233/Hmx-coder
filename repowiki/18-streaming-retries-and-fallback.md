@@ -145,20 +145,20 @@ Because the key is the session id, consecutive requests in one chat, including r
 - **`StreamRetrier.run`**: injectable `sleep`, `stallTimeoutMs`, and `allowRetries`.
 - **`PromptCachePolicy.supportsKey`**: the single switch for adding another endpoint that accepts explicit cache routing.
 
-Sources: [app/src/main/java/com/androidharness/app/llm/FallbackProvider.kt](../app/src/main/java/com/androidharness/app/llm/FallbackProvider.kt)#L46-L177)
+Sources: [app/src/main/java/com/hmx/harness/llm/FallbackProvider.kt](../app/src/main/java/com/hmx/harness/llm/FallbackProvider.kt)#L46-L177)
 
 ## Source files
 
-- `app/src/main/java/com/androidharness/app/agent/StreamRetrier.kt`
-- `app/src/main/java/com/androidharness/app/agent/RetryPolicy.kt`
-- `app/src/main/java/com/androidharness/app/llm/FallbackProvider.kt`
-- `app/src/main/java/com/androidharness/app/llm/FallbackPolicy.kt`
-- `app/src/main/java/com/androidharness/app/llm/PromptCachePolicy.kt`
-- `app/src/main/java/com/androidharness/app/llm/ProviderRetryAfter.kt`
-- `app/src/main/java/com/androidharness/app/llm/HarnessFreeLimit.kt`
-- `app/src/main/java/com/androidharness/app/llm/Llm.kt`
-- `app/src/main/java/com/androidharness/app/llm/OpenAiCompatProvider.kt`
-- `app/src/main/java/com/androidharness/app/llm/AnthropicProvider.kt`
-- `app/src/main/java/com/androidharness/app/llm/GeminiProvider.kt`
-- `app/src/main/java/com/androidharness/app/llm/OpenAiResponsesProvider.kt`
-- `app/src/main/java/com/androidharness/app/llm/HarnessProvider.kt`
+- `app/src/main/java/com/hmx/harness/agent/StreamRetrier.kt`
+- `app/src/main/java/com/hmx/harness/agent/RetryPolicy.kt`
+- `app/src/main/java/com/hmx/harness/llm/FallbackProvider.kt`
+- `app/src/main/java/com/hmx/harness/llm/FallbackPolicy.kt`
+- `app/src/main/java/com/hmx/harness/llm/PromptCachePolicy.kt`
+- `app/src/main/java/com/hmx/harness/llm/ProviderRetryAfter.kt`
+- `app/src/main/java/com/hmx/harness/llm/HarnessFreeLimit.kt`
+- `app/src/main/java/com/hmx/harness/llm/Llm.kt`
+- `app/src/main/java/com/hmx/harness/llm/OpenAiCompatProvider.kt`
+- `app/src/main/java/com/hmx/harness/llm/AnthropicProvider.kt`
+- `app/src/main/java/com/hmx/harness/llm/GeminiProvider.kt`
+- `app/src/main/java/com/hmx/harness/llm/OpenAiResponsesProvider.kt`
+- `app/src/main/java/com/hmx/harness/llm/HarnessProvider.kt`
