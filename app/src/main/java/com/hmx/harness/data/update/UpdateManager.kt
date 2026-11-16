@@ -156,14 +156,13 @@ class UpdateManager(
 
     fun installUpdate() {
         val current = _state.value
-        val ready = when (current) {
-            is State.ReadyToInstall -> current
-            is State.PermissionRequired -> current
+        val target = when (current) {
+            is State.ReadyToInstall -> current.apk to current.release
+            is State.PermissionRequired -> current.apk to current.release
             else -> return
         }
         scope.launch(Dispatchers.IO) {
-            val apk = ready.apk
-            val release = ready.release
+            val (apk, release) = target
             when (val result = installer.install(apk, release)) {
                 UpdateInstaller.Result.Started -> _state.value = State.Installing(release)
                 UpdateInstaller.Result.PermissionRequired -> _state.value = State.PermissionRequired(release, apk)

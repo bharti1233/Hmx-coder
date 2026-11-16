@@ -195,6 +195,7 @@ class MainActivity : AppCompatActivity() {
                     onDownload = { container.updates.downloadUpdate() },
                     onCancelDownload = { container.updates.cancelDownload() },
                     onInstall = { container.updates.installUpdate() },
+                    onRetryCheck = { lifecycleScope.launch { container.updates.check(manual = true) } },
                     onOpenSystemInstaller = { apk: File -> UpdateIntents.installApk(this, apk) },
                     onOpenUnknownSources = { UpdateIntents.openUnknownSourcesSettings(this) },
                 )

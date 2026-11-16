@@ -49,6 +49,7 @@ fun UpdateDialog(
     onDownload: () -> Unit,
     onCancelDownload: () -> Unit,
     onInstall: () -> Unit,
+    onRetryCheck: () -> Unit,
     onOpenSystemInstaller: (File) -> Unit,
     onOpenUnknownSources: () -> Unit,
 ) {
@@ -123,7 +124,7 @@ fun UpdateDialog(
                 is UpdateManager.State.Downloading -> TextButton(onClick = onCancelDownload) { Text("Cancel download") }
                 is UpdateManager.State.ReadyToInstall, is UpdateManager.State.InstallCancelled -> Button(onClick = onInstall) { Text("Install update") }
                 is UpdateManager.State.PermissionRequired -> Button(onClick = onOpenUnknownSources) { Text("Open settings") }
-                is UpdateManager.State.Failed -> Button(onClick = if (state.stage == UpdateManager.Stage.CHECK) onDismiss else onDownload) { Text("Retry") }
+                is UpdateManager.State.Failed -> Button(onClick = if (state.stage == UpdateManager.Stage.CHECK) onRetryCheck else onDownload) { Text("Retry") }
                 else -> Button(onClick = onDismiss) { Text("Done") }
             }
         },
