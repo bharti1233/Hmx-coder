@@ -102,7 +102,7 @@ class ProviderHeadersTest {
         val serverTls = okhttp3.tls.HandshakeCertificates.Builder().heldCertificate(certificate).build()
         val clientTls = okhttp3.tls.HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
         val client = okhttp3.OkHttpClient.Builder().sslSocketFactory(clientTls.sslSocketFactory(), clientTls.trustManager).build()
-        serverTls.sslSocketFactory().createServerSocket(0).use { server ->
+        serverTls.sslContext().serverSocketFactory.createServerSocket(0).use { server ->
             server.soTimeout = 1500
             val seen = CopyOnWriteArrayList<String>()
             val worker = thread(isDaemon = true) {

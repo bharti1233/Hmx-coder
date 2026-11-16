@@ -502,7 +502,7 @@ class McpOAuthTest {
             assertTrue(url.contains("client_id=cid-1"))
             try {
                 McpOAuth.exchangeCode(client, registered, "abc", "verifier")
-                fail("HTTP OAuth token exchange must be refused")
+                org.junit.Assert.fail("HTTP OAuth token exchange must be refused")
             } catch (_: McpOAuthException) { }
             val secureContext = registered.copy(tokenEndpoint = "https://as.example.com/token")
             val secureClient = OkHttpClient.Builder().addInterceptor { chain ->
