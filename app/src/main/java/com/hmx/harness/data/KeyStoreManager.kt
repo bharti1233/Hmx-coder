@@ -7,6 +7,13 @@ import androidx.security.crypto.MasterKey
 /** API keys are stored in EncryptedSharedPreferences backed by the Android Keystore. */
 class KeyStoreManager(context: Context) {
 
+    private val generation = context.getSharedPreferences("credential_storage_generation", Context.MODE_PRIVATE)
+        .getString("active", null)?.also {
+            check(it.matches(Regex("[0-9a-f-]{36}"))) { "Credential storage selection is invalid. Original data was preserved." }
+        }
+    private val storeName = generation?.let { "api_keys_$it" } ?: PREFS_NAME
+    private val masterAlias = generation?.let { "hmx_credentials_$it" } ?: MasterKey.DEFAULT_MASTER_KEY_ALIAS
+
     private val prefs by lazy { createPrefs(context.applicationContext) }
 
     fun verifyAvailable() {
@@ -27,6 +34,7 @@ class KeyStoreManager(context: Context) {
         check(it.startsWith("HMX-MCP-1\n")) { "Saved MCP credentials have an unsupported format. Update the app before retrying." }
         it.removePrefix("HMX-MCP-1\n")
     }
+    fun preserveLegacyMcp(): Boolean = prefs.getBoolean("preserve_legacy_mcp", false)
 
     @Synchronized fun putMcpConfiguration(value: String) {
         check(prefs.edit().putString("mcp_configuration_v1", "HMX-MCP-1\n$value").commit()) {
@@ -36,15 +44,15 @@ class KeyStoreManager(context: Context) {
     }
 
     private fun createPrefs(context: Context): android.content.SharedPreferences {
-        val existing = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).all.isNotEmpty()
+        val existing = context.getSharedPreferences(storeName, Context.MODE_PRIVATE).all.isNotEmpty()
         val keystore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        if (existing && !keystore.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
+        if (existing && !keystore.containsAlias(masterAlias)) {
             throw CredentialStorageException(CredentialStorageProblem.MISSING_KEY)
         }
         return try { EncryptedSharedPreferences.create(
         context,
-        PREFS_NAME,
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        storeName,
+        MasterKey.Builder(context, masterAlias).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         ) } catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) {
@@ -131,18 +139,26 @@ class KeyStoreManager(context: Context) {
     }
 
     /** GitHub access token used for push/PR/private-repo access from the toolchain. */
-    fun putGitHubToken(token: String) {
-        check(prefs.edit().remove("github_connection").putString(KEY_GITHUB, token.trim()).commit()) {
+    @Synchronized fun putGitHubToken(token: String) {
+        check(prefs.edit().remove("github_connection").putBoolean("github_logged_out", false).putString(KEY_GITHUB, token.trim()).commit()) {
             "Could not securely save GitHub credentials. Check storage and retry."
         }
         check(githubToken() == token.trim()) { "Could not verify encrypted GitHub credentials. Original data was preserved." }
     }
 
-    fun githubToken(): String? = prefs.getString(KEY_GITHUB, null)?.trim()?.ifBlank { null }
+    @Synchronized fun githubToken(): String? = if (prefs.getBoolean("github_logged_out", false)) null
+        else prefs.getString(KEY_GITHUB, null)?.trim()?.ifBlank { null }
 
-    fun removeGitHubToken() {
-        prefs.edit().remove("github_connection").remove(KEY_GITHUB).apply()
+    /** Migration is not a new user login: it must never clear a logout tombstone. */
+    @Synchronized fun migrateGitHubToken(token: String) {
+        check(!prefs.getBoolean("github_logged_out", false)) { "GitHub was signed out. Reconnect explicitly; legacy recovery is disabled." }
+        val existing = githubToken()
+        check(existing == null || existing == token.trim()) { "A different GitHub credential is already saved. Original data was preserved." }
+        if (existing == null) putGitHubToken(token)
+        check(githubToken() == token.trim()) { "Could not verify migrated GitHub credentials." }
     }
+
+    @Synchronized fun removeGitHubToken() = putGitHubCredential(null)
 
     /** GitHub login name captured when a token was verified against /user. */
     fun putGitHubLogin(login: String) {
@@ -151,16 +167,17 @@ class KeyStoreManager(context: Context) {
 
     fun githubLogin(): String? = prefs.getString(KEY_GITHUB_LOGIN, null)?.trim()?.ifBlank { null }
 
-    fun githubCredential(): com.hmx.harness.github.GitHubCredential? {
+    @Synchronized fun githubCredential(): com.hmx.harness.github.GitHubCredential? {
+        if (prefs.getBoolean("github_logged_out", false)) return null
         val saved = prefs.getString("github_connection", null)
-        if (saved != null) runCatching {
+        if (saved != null) return try {
             kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<com.hmx.harness.github.GitHubCredential>(saved)
-        }.getOrNull()?.let { return it }
+        } catch (_: Exception) { error("Saved GitHub connection is unreadable. Original data was preserved; reconnect GitHub.") }
         return githubToken()?.let { com.hmx.harness.github.GitHubCredential(it, githubLogin().orEmpty()) }
     }
 
-    fun putGitHubCredential(value: com.hmx.harness.github.GitHubCredential?) {
-        val editor = prefs.edit()
+    @Synchronized fun putGitHubCredential(value: com.hmx.harness.github.GitHubCredential?) {
+        val editor = prefs.edit().putBoolean("github_logged_out", value == null)
         if (value == null) editor.remove("github_connection").remove(KEY_GITHUB).remove(KEY_GITHUB_LOGIN)
         else editor.putString("github_connection", kotlinx.serialization.json.Json.encodeToString(
             com.hmx.harness.github.GitHubCredential.serializer(), value))
@@ -313,13 +330,33 @@ class KeyStoreManager(context: Context) {
                 .trim('_').takeIf { it.isNotEmpty() } ?: "x"
     }
 
-    private companion object {
-        const val PREFS_NAME = "api_keys"
-        const val KEY_GITHUB = "github_pat"
-        const val KEY_GITHUB_LOGIN = "github_login"
-        const val KEY_SEARCH_API = "search_api_key"
-        const val KEY_MCP_OAUTH = "mcp_oauth"
-        const val KEY_GROQ_API = "groq_api_key"
-        const val KEY_VOICE_API = "voice_api_key"
+    companion object {
+        /** Explicit user recovery only. Old preferences/key are never erased or overwritten. */
+        @Synchronized fun startCredentialReentry(context: Context) {
+            // A retry after successful selection must not abandon newly re-entered credentials.
+            if (runCatching { KeyStoreManager(context).verifyAvailable() }.isSuccess) return
+            val generation = java.util.UUID.randomUUID().toString()
+            val next = EncryptedSharedPreferences.create(context, "api_keys_$generation",
+                MasterKey.Builder(context, "hmx_credentials_$generation").setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            // Prevent plaintext leftovers from silently restoring a revoked/lost identity.
+            check(next.edit().putBoolean("github_logged_out", true).putBoolean("preserve_legacy_mcp", true)
+                .putString("mcp_configuration_v1", "HMX-MCP-1\n[]").commit()) {
+                "Could not prepare new credential storage. Original data was preserved."
+            }
+            check(next.getBoolean("github_logged_out", false) && next.getString("mcp_configuration_v1", null) == "HMX-MCP-1\n[]") {
+                "Could not verify new credential storage. Original data was preserved."
+            }
+            check(context.getSharedPreferences("credential_storage_generation", Context.MODE_PRIVATE)
+                .edit().putString("active", generation).commit()) { "Could not activate new credential storage. Retry recovery." }
+        }
+        private const val PREFS_NAME = "api_keys"
+        private const val KEY_GITHUB = "github_pat"
+        private const val KEY_GITHUB_LOGIN = "github_login"
+        private const val KEY_SEARCH_API = "search_api_key"
+        private const val KEY_MCP_OAUTH = "mcp_oauth"
+        private const val KEY_GROQ_API = "groq_api_key"
+        private const val KEY_VOICE_API = "voice_api_key"
     }
 }

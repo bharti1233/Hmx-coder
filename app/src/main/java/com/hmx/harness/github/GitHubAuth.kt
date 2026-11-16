@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import okhttp3.FormBody
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,7 +25,9 @@ data class GitHubCredential(
     val refreshExpiresAt: Long? = null,
     val scopes: String = "",
     val clientId: String = "",
-)
+) {
+    override fun toString(): String = "GitHubCredential(credentials=<redacted>)"
+}
 
 data class GitHubDeviceCode(val deviceCode: String, val userCode: String, val url: String,
     val expiresIn: Long, val interval: Long)
@@ -32,11 +35,13 @@ data class GitHubConnectionState(val login: String? = null, val oauth: Boolean =
     val busy: Boolean = false, val code: GitHubDeviceCode? = null, val message: String? = null)
 
 /** Direct GitHub requests: the device grant and refresh grant need only the public client ID. */
-class GitHubApi(
+class GitHubApi internal constructor(
     private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS).build(),
     private val authBase: String = "https://github.com",
     private val apiBase: String = "https://api.github.com",
 ) {
+    // An HTTP error is preferable to forwarding a credential through a redirect.
+    private val transport = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
     suspend fun form(path: String, fields: Map<String, String>): JsonObject = request(
         Request.Builder().url("$authBase$path").header("Accept", "application/json")
             .post(FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build()).build(),
@@ -58,20 +63,31 @@ class GitHubApi(
 
     private suspend fun request(request: Request): JsonObject = requestElement(request).jsonObject
     private suspend fun requestElement(request: Request): JsonElement = withContext(Dispatchers.IO) {
-        client.newCall(request).execute().use { response ->
+        val expected = if (request.body is FormBody) authBase else apiBase
+        val base = expected.toHttpUrl()
+        require(request.url.scheme == base.scheme && request.url.host == base.host && request.url.port == base.port &&
+            request.url.username.isEmpty() && request.url.password.isEmpty()) { "Unapproved GitHub destination." }
+        // Custom bases exist only for internal test fixtures. Production uses fixed HTTPS origins.
+        require(base.isHttps || base.host == "127.0.0.1") { "GitHub requires HTTPS." }
+        transport.newCall(request).execute().use { response ->
             val parsed = runCatching { Json.parseToJsonElement(response.body?.string().orEmpty()) }.getOrNull()
             if (!response.isSuccessful) {
                 (parsed as? JsonObject)?.string("error")?.let {
-                    error(oauthError(it, parsed.string("error_description")))
+                    val known = setOf("device_flow_disabled", "access_denied", "expired_token", "incorrect_client_credentials")
+                    error(oauthError(it.takeIf { value -> value in known }, null))
                 }
                 val message = (parsed as? JsonObject)?.get("message")?.jsonPrimitive?.contentOrNull
                     ?: (parsed as? JsonObject)?.get("error_description")?.jsonPrimitive?.contentOrNull
                 // Validation failures name the actual problem only in errors[].message.
                 val details = ((parsed as? JsonObject)?.get("errors") as? JsonArray).orEmpty()
                     .mapNotNull { (it as? JsonObject)?.string("message") ?: (it as? JsonPrimitive)?.contentOrNull }
-                throw GitHubHttpError(response.code, details,
+                val secrets = listOfNotNull(request.header("Authorization")?.removePrefix("Bearer ")) +
+                    ((request.body as? FormBody)?.let { form -> (0 until form.size).map { form.value(it) } }.orEmpty())
+                fun safe(value: String): String = redactGitHubSecrets(secrets.filter { it.isNotEmpty() }
+                    .fold(value) { text, secret -> text.replace(secret, "[redacted]") })
+                throw GitHubHttpError(response.code, details.map(::safe), safe(
                     "GitHub returned HTTP ${response.code}: ${message ?: "check connection and account access"}" +
-                        details.joinToString("") { " $it" })
+                        details.joinToString("") { " $it" }))
             }
             parsed ?: error("GitHub returned an unreadable response. Try again.")
         }

@@ -78,9 +78,30 @@ class MainActivity : AppCompatActivity() {
             setContent {
                 androidx.compose.material3.MaterialTheme {
                     androidx.compose.material3.Surface {
+                        var confirm by remember { mutableStateOf(false) }
+                        var failure by remember { mutableStateOf<String?>(null) }
+                        androidx.compose.foundation.layout.Column {
                         androidx.compose.material3.Text(
                             (application as HarnessApp).credentialRecoveryMessage.orEmpty() +
                                 " Restart HMXHARNESS after unlocking. Do not clear app data; projects and conversations have not been removed.",
+                        )
+                        failure?.let { androidx.compose.material3.Text(it) }
+                        androidx.compose.material3.Button(onClick = { confirm = true }) {
+                            androidx.compose.material3.Text("Reconnect using new credential storage")
+                        }
+                        }
+                        if (confirm) androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { confirm = false },
+                            title = { androidx.compose.material3.Text("Start credential re-entry?") },
+                            text = { androidx.compose.material3.Text("Old encrypted credentials and legacy files will be preserved on this device. This does not decrypt them. You must reconnect all providers, GitHub, MCP and other accounts. Projects and conversations remain intact. Restart the app after this completes.") },
+                            confirmButton = { androidx.compose.material3.Button(onClick = {
+                                try {
+                                    com.hmx.harness.data.KeyStoreManager.startCredentialReentry(this@MainActivity)
+                                    failure = "New credential storage is ready. Close and restart HMXHARNESS to reconnect your accounts."
+                                } catch (_: Exception) { failure = "Recovery could not be completed. Original credentials were preserved. Check device storage and retry." }
+                                confirm = false
+                            }) { androidx.compose.material3.Text("Preserve old data and reconnect") } },
+                            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirm = false }) { androidx.compose.material3.Text("Cancel") } },
                         )
                     }
                 }

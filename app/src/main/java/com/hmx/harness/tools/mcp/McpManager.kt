@@ -146,6 +146,7 @@ class McpManager(
     }
 
     private fun removeLegacyConfiguration() {
+        if (keys.preserveLegacyMcp()) return // Explicit recovery preserves the old configuration for manual recovery.
         listOf(storeFile, File(storeFile.path + ".tmp"), configHmacFile()).forEach {
             check(!it.exists() || it.delete()) { "Encrypted MCP configuration is saved, but legacy cleanup failed. Check storage and restart." }
         }

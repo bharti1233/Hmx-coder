@@ -244,7 +244,7 @@ class AppContainer(val appContext: Context) {
     val repoMap = com.hmx.harness.repomap.RepoMapCache()
     private val fetchClient = OkHttpClient()
     val linuxEnv =
-        com.hmx.harness.data.env.LinuxEnvironmentManager(appContext, githubTokenSaver = keys::putGitHubToken) { keys.githubToken() }
+        com.hmx.harness.data.env.LinuxEnvironmentManager(appContext, githubTokenSaver = keys::migrateGitHubToken) { keys.githubToken() }
     val wirelessAdb = com.hmx.harness.data.env.adb.WirelessAdbManager(appContext)
     val shizuku = com.hmx.harness.data.env.ShizukuManager(appContext, wireless = wirelessAdb)
     val dhizuku = com.hmx.harness.data.env.DhizukuManager(appContext)
