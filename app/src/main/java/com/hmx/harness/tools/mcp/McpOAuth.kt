@@ -248,16 +248,14 @@ object McpOAuth {
         form: FormBody,
     ): McpOAuthTokens = withContext(Dispatchers.IO) {
         val request = Request.Builder().url(ctx.tokenEndpoint).post(form).build()
+        if (!request.url.isHttps) throw McpOAuthException("OAuth token exchange requires HTTPS. Configure a secure token endpoint and retry.")
         try {
             client.newBuilder().callTimeout(30, TimeUnit.SECONDS).build()
                 .newCall(request).execute().use { resp ->
                     val body = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
-                        val obj = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
-                        val detail = obj?.string("error_description") ?: obj?.string("error")
                         throw McpOAuthException(
-                            "Token exchange failed (HTTP ${resp.code})" +
-                                (detail?.let { ": $it" } ?: "") + ". Try authenticating again.",
+                            "Token exchange failed (HTTP ${resp.code}). Try authenticating again.",
                         )
                     }
                     val obj = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()

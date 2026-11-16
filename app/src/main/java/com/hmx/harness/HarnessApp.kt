@@ -37,6 +37,8 @@ class HarnessApp : Application() {
     }
     lateinit var container: AppContainer
         private set
+    var credentialStorageUnavailable: Boolean = false
+        private set
 
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate() {
@@ -47,6 +49,13 @@ class HarnessApp : Application() {
         // Before any workspace is resolved, so no tool ever sees a filtered shared-storage tree.
         com.hmx.harness.data.env.StorageGate.install(packageName,
             granted = { com.hmx.harness.data.env.StorageAccess.isGranted(this) })
+        try {
+            KeyStoreManager(this).verifyAvailable()
+        } catch (_: Exception) {
+            // Keep the original encrypted files intact. MainActivity explains recovery.
+            credentialStorageUnavailable = true
+            return
+        }
         container = AppContainer(this)
         com.hmx.harness.data.update.UpdateWorker.schedule(this)
         com.hmx.harness.data.env.StorageGate.installPrivilegedRoute { cwd ->
@@ -231,7 +240,7 @@ class AppContainer(val appContext: Context) {
     val repoMap = com.hmx.harness.repomap.RepoMapCache()
     private val fetchClient = OkHttpClient()
     val linuxEnv =
-        com.hmx.harness.data.env.LinuxEnvironmentManager(appContext) { keys.githubToken() }
+        com.hmx.harness.data.env.LinuxEnvironmentManager(appContext, githubTokenSaver = keys::putGitHubToken) { keys.githubToken() }
     val wirelessAdb = com.hmx.harness.data.env.adb.WirelessAdbManager(appContext)
     val shizuku = com.hmx.harness.data.env.ShizukuManager(appContext, wireless = wirelessAdb)
     val dhizuku = com.hmx.harness.data.env.DhizukuManager(appContext)

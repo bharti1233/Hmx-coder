@@ -2,7 +2,7 @@ name: HMXHARNESS
 
 on:
   push:
-    branches: [main]
+    branches: [main, security/phase-1-privacy-hardening]
   pull_request:
   workflow_dispatch:
 
@@ -54,6 +54,9 @@ jobs:
 
       - name: Lint (debug)
         run: bash ./gradlew :app:lintDebug --no-daemon --stacktrace --max-workers=2
+
+      - name: Compile instrumentation tests
+        run: bash ./gradlew :app:assembleDebugAndroidTest --no-daemon --stacktrace --max-workers=2
 
       - name: Upload reports
         if: always()

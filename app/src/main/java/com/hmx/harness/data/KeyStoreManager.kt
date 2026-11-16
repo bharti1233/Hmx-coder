@@ -1,15 +1,18 @@
 package com.hmx.harness.data
 
 import android.content.Context
-import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.security.GeneralSecurityException
 
 /** API keys are stored in EncryptedSharedPreferences backed by the Android Keystore. */
 class KeyStoreManager(context: Context) {
 
-    private val prefs = openPrefs(context)
+    private val prefs by lazy { createPrefs(context.applicationContext) }
+
+    fun verifyAvailable() {
+        // Force key opening before the composition root starts background work.
+        prefs.contains("phase1_availability_probe")
+    }
 
     fun chatGptCredentials(): String? = prefs.getString("chatgpt_accounts", null)
 
@@ -17,21 +20,20 @@ class KeyStoreManager(context: Context) {
         check(prefs.edit().putString("chatgpt_accounts", value).commit()) { "Could not securely save ChatGPT connection." }
     }
 
-    /**
-     * The prefs file is wrapped by an AndroidKeyStore master key, so keystore
-     * loss (credential reset, backup restore onto another install) makes it
-     * undecryptable. Creating it would then throw from Application.onCreate
-     * and crash-loop the app forever; reset the file once and start over
-     * empty instead. The stored secrets are gone either way at that point.
-     */
-    private fun openPrefs(context: Context): android.content.SharedPreferences =
-        try {
-            createPrefs(context)
-        } catch (e: GeneralSecurityException) {
-            Log.w("KeyStoreManager", "Encrypted prefs are undecryptable (keystore reset?); resetting them", e)
-            context.deleteSharedPreferences(PREFS_NAME)
-            createPrefs(context)
+    // Never delete credentials on a transient Keystore error or invalidation.
+    // Callers must report failure and preserve recoverable encrypted data.
+
+    fun mcpConfiguration(): String? = prefs.getString("mcp_configuration_v1", null)?.let {
+        check(it.startsWith("HMX-MCP-1\n")) { "Saved MCP credentials have an unsupported format. Update the app before retrying." }
+        it.removePrefix("HMX-MCP-1\n")
+    }
+
+    @Synchronized fun putMcpConfiguration(value: String) {
+        check(prefs.edit().putString("mcp_configuration_v1", "HMX-MCP-1\n$value").commit()) {
+            "Could not encrypt MCP configuration. Unlock the device, check storage and retry."
         }
+        check(mcpConfiguration() == value) { "Could not verify encrypted MCP configuration. Original data was preserved." }
+    }
 
     private fun createPrefs(context: Context) = EncryptedSharedPreferences.create(
         context,
@@ -117,7 +119,10 @@ class KeyStoreManager(context: Context) {
 
     /** GitHub access token used for push/PR/private-repo access from the toolchain. */
     fun putGitHubToken(token: String) {
-        prefs.edit().remove("github_connection").putString(KEY_GITHUB, token.trim()).apply()
+        check(prefs.edit().remove("github_connection").putString(KEY_GITHUB, token.trim()).commit()) {
+            "Could not securely save GitHub credentials. Check storage and retry."
+        }
+        check(githubToken() == token.trim()) { "Could not verify encrypted GitHub credentials. Original data was preserved." }
     }
 
     fun githubToken(): String? = prefs.getString(KEY_GITHUB, null)?.trim()?.ifBlank { null }

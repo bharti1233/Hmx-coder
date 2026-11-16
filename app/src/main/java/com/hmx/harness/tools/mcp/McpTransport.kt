@@ -332,6 +332,8 @@ internal fun sseEvents(body: String): List<Pair<String?, String>> {
 
 /** Shared OkHttp client for remote MCP transports (tools can be slow: 5 min read). */
 internal fun mcpHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    .followSslRedirects(false)
+    .addNetworkInterceptor(com.hmx.harness.data.EndpointSecurity())
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(5, TimeUnit.MINUTES)
     .callTimeout(0, TimeUnit.MILLISECONDS)

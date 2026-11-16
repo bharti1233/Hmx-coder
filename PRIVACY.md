@@ -1,8 +1,8 @@
 # Privacy Policy for HMXHARNESS
 
-Last updated: September 6, 2026
+Last updated: November 16, 2026 (Phase 1 implementation; device verification pending)
 
-HMXHARNESS runs on your device. It is a tool that connects to services you
+HMXHARNESS, the HMXPANEL Android application (`com.hmx.harness`), runs on your device. It connects to services you
 choose and configure yourself. I built it so that your data stays between you
 and those services. This page explains what the app handles and what it does
 with it.
@@ -40,9 +40,38 @@ The app has no analytics, advertising, crash reporting, or telemetry.
 
 ## Backups
 
-App data may be included in backups handled by your device's backup system
-and your Google account settings. You can turn that off in your device's
-backup settings.
+The application disables Android backup and explicitly excludes all app-managed
+data domains from legacy cloud backup, Android 12+ cloud backup, and device
+transfer. This includes database sidecars, attachments, workspace history,
+credentials and preferences. These rules do not erase existing backups or
+control backups made independently by other apps of shared-storage files.
+OEM backup and transfer behavior has not yet been verified on devices.
+
+Manual exports remain available: settings exports are password-encrypted and
+include credentials only when selected. Chat exports contain readable conversation
+content and should be handled as sensitive files. Clearing chats or memories in
+the app does not erase copies previously exported or sent to external services.
+
+## Credential recovery and local networking
+
+Global MCP configurations migrate into existing Android Keystore-backed encrypted
+preferences. Legacy files are removed only after encrypted read-back succeeds.
+Failures preserve original data and block configuration replacement with an
+actionable error. User-authored workspace configuration can still contain secrets.
+GitHub toolchain authentication uses process environment values instead of saved
+token files; programs running with those credentials can access them in memory.
+
+Keystore invalidation, uninstall or device migration may make credentials
+unrecoverable. The app does not automatically delete unreadable encrypted records;
+affected services must be reconnected when recovery is impossible. Chats and
+workspace files are not protected by blanket application-level encryption.
+
+Android HTTP policy requires HTTPS except exact loopback development endpoints
+(`localhost`, `127.0.0.1`, `::1`). LAN HTTP services require HTTPS or a local tunnel.
+FTP and user-run native programs have separate network behavior; not every
+connection is encrypted. External voice services receive audio or read-aloud text,
+including Microsoft when Edge TTS is selected. Keyless AI/search services also
+receive request content. Local inference does not make unrelated tools offline.
 
 ## Children
 
@@ -57,4 +86,4 @@ change will be reflected in the app's store listing.
 ## Contact
 
 Questions or concerns: open an issue at
-https://github.com/Sanuu7/AndroidHarness/issues
+https://github.com/bharti1233/Hmx-coder/issues

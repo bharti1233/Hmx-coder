@@ -35,6 +35,8 @@ object DeepgramVoiceClient {
     private val json = Json { ignoreUnknownKeys = true }
 
     private val httpClient = OkHttpClient.Builder()
+        .followSslRedirects(false)
+        .addNetworkInterceptor(com.hmx.harness.data.EndpointSecurity())
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)

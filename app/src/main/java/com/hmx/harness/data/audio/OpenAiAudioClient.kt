@@ -39,6 +39,8 @@ object OpenAiAudioClient {
     private val wavMedia = "audio/wav".toMediaType()
 
     private val httpClient = OkHttpClient.Builder()
+        .followSslRedirects(false)
+        .addNetworkInterceptor(com.hmx.harness.data.EndpointSecurity())
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)

@@ -50,7 +50,7 @@ object DebugRedact {
             lower.endsWith("key")
     }
 
-    /** Scheme, four leading characters and a length: enough to tell two keys apart, never the key. */
+    /** Do not retain even a partial credential in persistent diagnostics. */
     fun maskValue(value: String): String {
         val trimmed = value.trim()
         if (trimmed.isEmpty()) return ""
@@ -58,8 +58,7 @@ object DebugRedact {
         val prefix = scheme?.let { trimmed.take(it.length) }.orEmpty()
         val secret = trimmed.removePrefix(prefix).trim()
         if (secret.isEmpty()) return prefix.trimEnd()
-        val head = if (secret.length > 8) secret.take(4) else ""
-        return "$prefix$head…(${secret.length} chars)"
+        return "${prefix}[redacted]"
     }
 
     fun header(name: String, value: String): String =
@@ -76,7 +75,7 @@ object DebugRedact {
         // Drop the matched prefix by its length: the constant is lower case while
         // the wire value usually is not, so removePrefix would leave it attached.
         val secret = trimmed.substring(scheme?.length ?: 0).trim()
-        secret.takeIf { it.length >= 8 }
+        secret.takeIf { it.isNotEmpty() }
     }.distinct()
 
     fun body(text: String, secrets: List<String>): String {

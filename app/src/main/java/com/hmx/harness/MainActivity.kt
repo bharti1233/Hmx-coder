@@ -73,6 +73,19 @@ class MainActivity : AppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if ((application as HarnessApp).credentialStorageUnavailable) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            setContent {
+                androidx.compose.material3.MaterialTheme {
+                    androidx.compose.material3.Surface {
+                        androidx.compose.material3.Text(
+                            "Secure credentials are unavailable. Your saved data has been preserved. Unlock the device and restart HMXHARNESS. If the device key was permanently lost, credentials must be recovered from an encrypted settings export or re-entered; do not clear app data to troubleshoot this error.",
+                        )
+                    }
+                }
+            }
+            return
+        }
         container = (application as HarnessApp).container
         if (intent?.getBooleanExtra(com.hmx.harness.data.update.UpdateNotificationManager.EXTRA_OPEN_UPDATES, false) == true) {
             container.pendingSettingsScroll.value = "updates"
@@ -217,10 +230,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (!::container.isInitialized) return
         container.nineRouter.onAppOpen()
     }
 
     override fun onPause() {
+        if (!::container.isInitialized) { super.onPause(); return }
         container.browser.unbindReadCaptureHost(window.decorView as android.view.ViewGroup)
         super.onPause()
         lastPausedTimestamp = System.currentTimeMillis()
@@ -228,6 +243,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!::container.isInitialized) return
         requestFastestRefreshRate()
         com.hmx.harness.data.env.adb.WirelessAdbService.resume(this)
         container.shizuku.refresh()
@@ -267,6 +283,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (!::container.isInitialized) return
         handleSessionIntent(intent)
         handleMcpOAuth(intent)
         handleShareIntent(intent)

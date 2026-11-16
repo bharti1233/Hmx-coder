@@ -14,6 +14,25 @@ import org.junit.Test
  */
 class GitHubProvisionTest {
 
+    @Test fun legacyRecoveryRejectsConflictingCopiesWithoutDeletingThem() {
+        val prefix = java.nio.file.Files.createTempDirectory("github-migration-test").toFile()
+        try {
+            val token = java.io.File(prefix, GitHubProvision.TOKEN_FILE).apply { parentFile.mkdirs(); writeText("synthetic-one") }
+            val hosts = java.io.File(prefix, GitHubProvision.GH_HOSTS_FILE).apply { parentFile.mkdirs(); writeText("github.com:\n    oauth_token: synthetic-two\n") }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) { GitHubProvision.legacyToken(prefix) }
+            assertTrue(token.exists())
+            assertTrue(hosts.exists())
+            hosts.writeText("github.com:\n    oauth_token: synthetic-one\n")
+            assertEquals("synthetic-one", GitHubProvision.legacyToken(prefix))
+        } finally { prefix.deleteRecursively() }
+    }
+
+    @Test fun tokenCannotInjectAnotherEnvironmentEntry() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            GitHubProvision.processEnvironment("synthetic\nINJECTED=value")
+        }
+    }
+
     @Test
     fun `config without token keeps safe directory identity and default branch only`() {
         val body = GitHubProvision.gitConfigBody(null)
@@ -29,8 +48,8 @@ class GitHubProvisionTest {
     @Test
     fun `config with token rewrites github urls and does not reset helpers`() {
         val body = GitHubProvision.gitConfigBody("ghp_TESTTOKEN123")
-        assertTrue(body.contains("[url \"https://x-access-token:ghp_TESTTOKEN123@github.com/\"]"))
-        assertTrue(body.contains("insteadOf = https://github.com/"))
+        assertFalse(body.contains("ghp_TESTTOKEN123"))
+        assertFalse(body.contains("insteadOf"))
         // The old empty `credential.helper =` reset is gone: with the git ELF's
         // SHELL_PATH patched to /system/bin/sh, gh's helpers must be able to run.
         assertFalse(body.contains("[credential]"))
@@ -49,9 +68,11 @@ class GitHubProvisionTest {
     @Test
     fun `gh hosts yaml authenticates the cli and clears without a token`() {
         val yaml = GitHubProvision.ghHostsYaml("ghp_TESTTOKEN123")
-        assertTrue(yaml!!.startsWith("github.com:"))
-        assertTrue(yaml.contains("git_protocol: https"))
-        assertTrue(yaml.contains("oauth_token: ghp_TESTTOKEN123"))
+        assertEquals(null, yaml)
+        val env = GitHubProvision.processEnvironment("ghp_TESTTOKEN123")
+        assertEquals("ghp_TESTTOKEN123", env["GH_TOKEN"])
+        assertEquals("http.https://github.com/.extraHeader", env["GIT_CONFIG_KEY_0"])
+        assertEquals("false", env["GIT_CONFIG_VALUE_1"])
         assertEquals(null, GitHubProvision.ghHostsYaml(null))
         assertEquals(null, GitHubProvision.ghHostsYaml("  "))
     }

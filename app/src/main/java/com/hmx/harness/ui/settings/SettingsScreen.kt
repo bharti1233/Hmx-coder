@@ -1314,6 +1314,7 @@ private fun McpSection(container: AppContainer, onOpenPlugins: () -> Unit, onOpe
     val servers by container.mcp.servers.collectAsStateWithLifecycle(initialValue = emptyList())
     val statuses by container.mcp.statuses.collectAsStateWithLifecycle(initialValue = emptyMap())
     val configTampered by container.mcp.configTampered.collectAsStateWithLifecycle(initialValue = false)
+    val mcpStorageError by container.mcp.storageError.collectAsStateWithLifecycle(initialValue = null)
     var editing by remember { mutableStateOf<McpServerConfig?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var authError by remember { mutableStateOf<String?>(null) }
@@ -1323,7 +1324,9 @@ private fun McpSection(container: AppContainer, onOpenPlugins: () -> Unit, onOpe
     PluginMcpServersSection(container, onOpenPlugins, onOpenConfiguration)
     SettingsPanel(Modifier.fillMaxWidth().settingsAnchor(R.string.settings_search_mcp_title)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (configTampered) {
+            if (mcpStorageError != null) {
+                Text(mcpStorageError.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            } else if (configTampered) {
                 Text(
                     uiContext.getString(R.string.ui_the_mcp_server_list_was_modified_outside) +
                         uiContext.getString(R.string.ui_check_its_contents_were_ignored_re_add),

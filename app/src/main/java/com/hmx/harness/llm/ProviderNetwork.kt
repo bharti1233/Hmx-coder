@@ -18,6 +18,8 @@ object ProviderNetwork {
     }
 
     fun client(base: OkHttpClient, providerId: String?): OkHttpClient = configure(base, selected(providerId))
+        .newBuilder().followSslRedirects(false)
+        .addNetworkInterceptor(com.hmx.harness.data.EndpointSecurity()).build()
 
     internal fun configure(base: OkHttpClient, proxy: ProviderProxy): OkHttpClient {
         require(proxy.error() == null) { "Provider proxy is invalid." }

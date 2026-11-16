@@ -26,7 +26,8 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Global server list persisted to filesDir/mcp-servers.json, like BgProcessStore.
+ * Global server list in Keystore-backed encrypted preferences. Legacy JSON is
+ * removed only after validating and reading back the encrypted replacement.
  * Supports stdio servers (spawned as app-tier children) and remote http/sse
  * servers, including the MCP OAuth 2.1 flow: a 401 during connect flips the
  * server to the "auth" state, [startAuthentication] runs discovery +
@@ -52,6 +53,9 @@ class McpManager(
      * or corrupted) and its contents were refused. Re-saving any server clears it.
      */
     val configTampered: StateFlow<Boolean> = _configTampered
+
+    private val _storageError = MutableStateFlow<String?>(null)
+    val storageError: StateFlow<String?> = _storageError
 
     private val _servers = MutableStateFlow<List<McpServerConfig>>(loadServers())
     val servers: StateFlow<List<McpServerConfig>> = _servers
@@ -114,42 +118,47 @@ class McpManager(
     private val oauthMutexes = HashMap<String, Mutex>()
 
     private fun loadServers(): List<McpServerConfig> {
-        if (!storeFile.exists()) return emptyList()
-        val text = runCatching { storeFile.readText() }.getOrNull() ?: return emptyList()
-        val parsed = runCatching { json.decodeFromString<List<McpServerConfig>>(text) }.getOrNull()
-        // Integrity: the .hmac sidecar is written only by the app alongside each
-        // save. A mismatch means the file was edited out-of-band or corrupted,
-        // refuse the contents loudly instead of spawning whatever it now defines.
-        val expected = computeConfigHmac(text.toByteArray())
-        val stored = runCatching { configHmacFile().readText().trim() }.getOrNull()
-        if (expected != null && stored != null && stored != expected) {
-            runCatching {
-                storeFile.delete()
-                configHmacFile().delete()
-            }
-            _configTampered.value = true
-            return emptyList()
+        return try {
+            val text = com.hmx.harness.data.CredentialMigration.load(
+                readSecure = keys::mcpConfiguration,
+                readLegacy = {
+                    if (!storeFile.exists()) null else storeFile.readText().also { legacy ->
+                        if (configHmacFile().exists()) {
+                            val expected = computeConfigHmac(legacy.toByteArray())
+                                ?: error("Cannot verify legacy MCP configuration.")
+                            if (configHmacFile().readText().trim() != expected) {
+                                _configTampered.value = true
+                                error("Legacy MCP integrity check failed.")
+                            }
+                        }
+                    }
+                },
+                validate = { json.decodeFromString<List<McpServerConfig>>(it) },
+                writeSecure = keys::putMcpConfiguration,
+                removeLegacy = ::removeLegacyConfiguration,
+            )
+            _storageError.value = null
+            text?.let { json.decodeFromString<List<McpServerConfig>>(it) }.orEmpty()
+        } catch (_: Exception) {
+            _storageError.value = "MCP configuration could not be securely loaded. Original data was preserved. Unlock the device, check free storage and restart. If the device key was lost, reconnect services after recovering your configuration."
+            emptyList()
         }
-        if (expected != null && stored == null) {
-            // First launch after this change existed: adopt the current file.
-            runCatching { configHmacFile().writeText(expected) }
+    }
+
+    private fun removeLegacyConfiguration() {
+        listOf(storeFile, File(storeFile.path + ".tmp"), configHmacFile()).forEach {
+            check(!it.exists() || it.delete()) { "Encrypted MCP configuration is saved, but legacy cleanup failed. Check storage and restart." }
         }
-        return parsed ?: emptyList()
     }
 
     private suspend fun persist(list: List<McpServerConfig>) {
-        _servers.value.filter { previous -> list.none { it == previous } }.forEach { disconnect(it.name) }
-        _servers.value = list
         ioLock.withLock {
             withContext(Dispatchers.IO) {
-                runCatching {
-                    val tmp = File(storeFile.parentFile, storeFile.name + ".tmp")
-                    tmp.writeText(json.encodeToString(list))
-                    tmp.renameTo(storeFile)
-                    computeConfigHmac(storeFile.readBytes())?.let {
-                        configHmacFile().writeText(it)
-                    }
-                }
+                check(_storageError.value == null) { _storageError.value.orEmpty() }
+                keys.putMcpConfiguration(json.encodeToString(list))
+                removeLegacyConfiguration()
+                _servers.value.filter { previous -> list.none { it == previous } }.forEach { disconnect(it.name) }
+                _servers.value = list
             }
         }
         // An app-side save re-establishes integrity after any tamper refusal.
@@ -194,18 +203,9 @@ class McpManager(
                 config.copy(name = name, enabled = false)
             }
             val list = _servers.value + imported
-            val bytes = json.encodeToString(list).toByteArray(Charsets.UTF_8)
-            val signature = computeConfigHmac(bytes) ?: error("Cannot protect restored MCP configuration.")
-            val atomic = android.util.AtomicFile(storeFile)
-            val stream = atomic.startWrite()
-            try {
-                stream.write(bytes)
-                atomic.finishWrite(stream)
-            } catch (e: Exception) {
-                atomic.failWrite(stream)
-                throw e
-            }
-            configHmacFile().writeText(signature)
+            check(_storageError.value == null) { _storageError.value.orEmpty() }
+            keys.putMcpConfiguration(json.encodeToString(list))
+            removeLegacyConfiguration()
             _servers.value = list
             _configTampered.value = false
         }

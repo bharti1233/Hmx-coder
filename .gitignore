@@ -36,6 +36,7 @@ graphify-out/
 # --- Not part of the published source tree ---
 docs/*
 !docs/configuration/
+!docs/security/
 !docs/harness.schema.json
 screenshots/
 mock-server.js

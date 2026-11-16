@@ -298,6 +298,7 @@ class LinuxEnvironmentManager(
     private val context: Context,
     private val packageIndexLoader: (suspend () -> Map<String, PkgMeta>)? = null,
     private val packageHttpClient: OkHttpClient? = null,
+    private val githubTokenSaver: ((String) -> Unit)? = null,
     /** Master GitHub token from the app's encrypted settings (never stored in the prefix). */
     private val githubTokenProvider: () -> String? = { null },
 ) {
@@ -932,6 +933,7 @@ class LinuxEnvironmentManager(
         // "detected dubious ownership". The same config carries the commit
         // identity + GitHub token rewrite (see gitGlobalConfig).
         put("GIT_CONFIG_GLOBAL", gitGlobalConfig().absolutePath)
+        putAll(GitHubProvision.processEnvironment(githubToken()))
         put("HARNESS_GIT_CONFIG", gitGlobalConfig().absolutePath)
         // Bug fix: the Termux-built git also reads a SYSTEM config from its old
         // prefix, where reading is denied and git exits 128 before running.
@@ -1030,10 +1032,14 @@ class LinuxEnvironmentManager(
      * Master GitHub token from the app's encrypted settings, for tools that
      * report GitHub state (doctor, env_status). Null when none is configured.
      */
-    fun githubToken(): String? = runCatching { githubTokenProvider() }.getOrNull()
+    fun githubToken(): String? = githubTokenProvider()
 
     fun gitGlobalConfig(): File {
         val f = File(prefix, "etc/gitconfig")
+        // Do not overwrite an orphaned legacy token URL before it has been recovered.
+        if (githubToken() == null && GitHubProvision.legacyToken(prefix) != null) {
+            error("Legacy GitHub credentials need migration. Restart HMXHARNESS or reconnect GitHub; original files were preserved.")
+        }
         val desired = GitHubProvision.gitConfigBody(githubToken())
         if (!f.exists() || f.readText() != desired) {
             f.parentFile?.mkdirs()
@@ -1074,8 +1080,21 @@ class LinuxEnvironmentManager(
     )
 
     /** Re-writes the toolchain copies of the GitHub auth state. Idempotent. */
-    fun materializeGitHub() {
-        val token = githubToken()
+    fun materializeGitHub(recoverLegacy: Boolean = true) {
+        var token = githubToken()
+        if (token == null && recoverLegacy) {
+            val legacy = GitHubProvision.legacyToken(prefix)
+            if (legacy != null) {
+                val save = checkNotNull(githubTokenSaver) { "Reconnect GitHub to migrate legacy credentials. Original file was preserved." }
+                save(legacy)
+                check(githubToken() == legacy) { "GitHub credential migration could not be verified. Original file was preserved." }
+                token = legacy
+            }
+        }
+        check(!recoverLegacy || token != null || (!File(prefix, GitHubProvision.TOKEN_FILE).exists() &&
+            !File(prefix, GitHubProvision.GH_HOSTS_FILE).exists())) {
+            "Legacy GitHub credentials were preserved because no encrypted connection is available. Reconnect GitHub before cleanup."
+        }
         GitHubProvision.materializeTokenFile(prefix, token)
         GitHubProvision.materializeGhHosts(prefix, token)
         gitGlobalConfig()
@@ -1093,7 +1112,7 @@ class LinuxEnvironmentManager(
      * Deploys re-stage via ensureShellDeploy when the package set changes.
      */
     suspend fun refreshGitHub(shizuku: ShizukuManager, strict: Boolean = false) = withContext(Dispatchers.IO) {
-        materializeGitHub()
+        materializeGitHub(recoverLegacy = false)
         if (strict) GitHubProvision.checkMaterialized(prefix, githubToken())
         if (shizuku.isGranted()) {
             if (strict) syncShellTierAuth(shizuku) else runCatching { syncShellTierAuth(shizuku) }
@@ -1128,11 +1147,7 @@ class LinuxEnvironmentManager(
             }
             append("mkdir -p '$tmpPrefix/etc' '$tmpPrefix/home/.config/gh' && ")
             writeB64("$tmpPrefix/etc/gitconfig", gitconfig)
-            if (GitHubProvision.hasToken(token)) {
-                writeB64("$tmpPrefix/home/.gh-token", token!!.trim() + "\n")
-            } else {
-                append("rm -f '$tmpPrefix/home/.gh-token' && ")
-            }
+            append("rm -f '$tmpPrefix/home/.gh-token' && ")
             val hostsBody = hosts
             if (hostsBody != null) {
                 writeB64("$tmpPrefix/home/.config/gh/hosts.yml", hostsBody)
@@ -1283,6 +1298,7 @@ class LinuxEnvironmentManager(
         // Bug 5 fix: same safe.directory global config for the shell-uid
         // tier, written under the deployed prefix.
         put("GIT_CONFIG_GLOBAL", "$tmpPrefix/etc/gitconfig")
+        putAll(GitHubProvision.processEnvironment(githubToken()))
         put("HARNESS_GIT_CONFIG", "$tmpPrefix/etc/gitconfig")
         // Same unreadable-system-config fix as the app-side env: derived the
         // same way (the deployed copy is staged from this tree), and the

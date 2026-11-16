@@ -1,5 +1,8 @@
 # Security Policy
 
+HMXPANEL / HMXHARNESS (`com.hmx.harness`). Phase 1 hardening is in progress;
+see `docs/security/PHASE1_IMPLEMENTATION_REPORT.md` for executed checks and limits.
+
 HMXHARNESS can read and change files, execute programs, connect to external
 services, and use privileged device access when enabled. Use it only with
 projects, tools, models, and services you trust. This policy describes the
@@ -18,12 +21,12 @@ they have the same signing identity or hardening as a production release.
 ## Reporting a Vulnerability
 
 Use **Report a vulnerability** from the repository's
-[security advisories page](https://github.com/Sanuu7/AndroidHarness/security/advisories)
+[security advisories page](https://github.com/bharti1233/Hmx-coder/security/advisories)
 when GitHub private vulnerability reporting is available. Adding this policy
 file does not itself enable private reporting.
 
 If that option is unavailable, open an
-[issue requesting a private security contact](https://github.com/Sanuu7/AndroidHarness/issues/new?title=Private%20security%20reporting%20contact).
+[issue requesting a private security contact](https://github.com/bharti1233/Hmx-coder/issues/new?title=Private%20security%20reporting%20contact).
 Include no vulnerability details, credentials, sensitive logs, or working
 exploit in that public issue. GitHub documents this fallback in its
 [private reporting guidance](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/report-privately).
@@ -71,30 +74,30 @@ Repository instructions, model replies, web pages, command output, and MCP tool
 results can contain malicious instructions. Review proposed actions rather than
 assuming AI-generated commands or third-party instructions are safe.
 
-Relevant code: [workspace access](app/src/main/java/com/androidharness/app/workspace/WorkspaceFs.kt),
-[tool routing](app/src/main/java/com/androidharness/app/tools/WorkspaceToolRouting.kt),
-[shell policy](app/src/main/java/com/androidharness/app/tools/ShellPolicy.kt),
-[permission checks](app/src/main/java/com/androidharness/app/agent/AgentEngine.kt), and
-[device access](app/src/main/java/com/androidharness/app/data/env/DeviceAccessPolicy.kt).
+Relevant code: [workspace access](app/src/main/java/com/hmx/harness/workspace/WorkspaceFs.kt),
+[tool routing](app/src/main/java/com/hmx/harness/tools/WorkspaceToolRouting.kt),
+[shell policy](app/src/main/java/com/hmx/harness/tools/ShellPolicy.kt),
+[permission checks](app/src/main/java/com/hmx/harness/agent/AgentEngine.kt), and
+[device access](app/src/main/java/com/hmx/harness/data/env/DeviceAccessPolicy.kt).
 
 ## Credentials, Local Data, and Backups
 
 | Data | Current handling and limits |
 | --- | --- |
 | Provider keys, saved sign-in state, SSH credentials, and sync credentials | Stored through Android Keystore-backed encrypted preferences. This does not protect them from a compromised OS or all code running with the app's own authority. |
-| Runtime credentials and MCP configuration | Tooling may materialize credentials in app-private files. MCP command arguments, environment values, and static headers are stored in its configuration file; the configuration HMAC is an integrity check, not encryption or a sandbox. |
+| Runtime credentials and MCP configuration | Global MCP configuration is migrated into Keystore-backed encrypted preferences with verified read-back before legacy removal. GitHub tooling receives process environment credentials instead of disk copies. User-authored workspace files may still contain secrets. Process memory and app-UID code are outside at-rest encryption protection. |
 | Chats, memory, checkpoints, workspace files, and tool logs | Stored locally, without a blanket application-level encryption guarantee. Shared-storage and remote workspaces have their own access rules. |
 | Settings exports | Password-encrypted with AES-256-GCM and PBKDF2-HMAC-SHA256. Credentials are included only when selected. Use a long, unique password; an exported file can be attacked offline. |
 | Chat exports, shared files, and other exports | Do not assume settings-backup encryption applies to them. Anyone receiving the exported or shared data may be able to read it. |
-| Android backup and device transfer | Rules exclude selected credential, configuration, Telegram, and toolchain locations. Other app data may still be backed up according to Android and device settings. |
+| Android backup and device transfer | Backup is disabled and all private app storage domains are explicitly excluded in both rule generations. OEM transfer behavior is not device-verified. These rules do not remove old backups or copies made by other apps. |
 
 App locking and screenshot protections reduce casual exposure; they do not
 replace device security, file encryption, or careful handling of exports. Avoid
 putting secrets in prompts, project instructions, command arguments, or logs.
 
-Relevant code: [credential storage](app/src/main/java/com/androidharness/app/data/KeyStoreManager.kt),
-[backup encryption](app/src/main/java/com/androidharness/app/data/BackupEncryption.kt),
-[settings backups](app/src/main/java/com/androidharness/app/data/SettingsBackup.kt),
+Relevant code: [credential storage](app/src/main/java/com/hmx/harness/data/KeyStoreManager.kt),
+[backup encryption](app/src/main/java/com/hmx/harness/data/BackupEncryption.kt),
+[settings backups](app/src/main/java/com/hmx/harness/data/SettingsBackup.kt),
 [backup rules](app/src/main/res/xml/backup_rules.xml), and
 [device-transfer rules](app/src/main/res/xml/data_extraction_rules.xml).
 
@@ -124,10 +127,10 @@ Relevant code: [credential storage](app/src/main/java/com/androidharness/app/dat
   paths. An enabled connection is not a reason to trust untrusted code. Revoke
   grants and debugging pairings in the appropriate app or Android settings.
 
-Relevant code: [MCP](app/src/main/java/com/androidharness/app/tools/mcp/),
-[SSH](app/src/main/java/com/androidharness/app/workspace/SshConnections.kt),
-[file transfers](app/src/main/java/com/androidharness/app/data/transfer/), and
-[Telegram](app/src/main/java/com/androidharness/app/telegram/).
+Relevant code: [MCP](app/src/main/java/com/hmx/harness/tools/mcp/),
+[SSH](app/src/main/java/com/hmx/harness/workspace/SshConnections.kt),
+[file transfers](app/src/main/java/com/hmx/harness/data/transfer/), and
+[Telegram](app/src/main/java/com/hmx/harness/telegram/).
 
 ## Browser, Previews, and Local Models
 
@@ -146,10 +149,10 @@ sources you trust. Catalog checksums detect mismatched bytes where an expected
 checksum exists; they do not independently prove a model publisher is trustworthy.
 CPU and experimental GPU execution are not additional security sandboxes.
 
-Relevant code: [browser](app/src/main/java/com/androidharness/app/browser/),
-[artifact renderer](app/src/main/java/com/androidharness/app/artifacts/ArtifactWebView.kt),
-[editor service](app/src/main/java/com/androidharness/app/ui/files/SmartEditorEngine.kt), and
-[local inference](app/src/main/java/com/androidharness/app/local/).
+Relevant code: [browser](app/src/main/java/com/hmx/harness/browser/),
+[artifact renderer](app/src/main/java/com/hmx/harness/artifacts/ArtifactWebView.kt),
+[editor service](app/src/main/java/com/hmx/harness/ui/files/SmartEditorEngine.kt), and
+[local inference](app/src/main/java/com/hmx/harness/local/).
 
 ## Updates and Supply Chain
 
@@ -164,10 +167,10 @@ upstream services are part of the trust boundary. Package or version pinning and
 checksums do not replace dependency advisory review. Keep Android and WebView
 updated, and use the least CI and account permissions needed.
 
-Relevant code: [update validation](app/src/main/java/com/androidharness/app/data/update/),
-[toolchain downloads](app/src/main/java/com/androidharness/app/data/env/LinuxEnvironment.kt),
+Relevant code: [update validation](app/src/main/java/com/hmx/harness/data/update/),
+[toolchain downloads](app/src/main/java/com/hmx/harness/data/env/LinuxEnvironment.kt),
 [native build](app/src/main/cpp/CMakeLists.txt), and
-[CI workflow](.github/workflows/nightly.yml).
+[CI workflow](.github/workflows/build.yml).
 
 ## Review Scope and Verification
 
