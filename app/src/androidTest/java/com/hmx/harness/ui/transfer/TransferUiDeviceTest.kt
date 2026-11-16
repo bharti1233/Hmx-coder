@@ -23,7 +23,6 @@ import com.hmx.harness.data.transfer.*
 import com.hmx.harness.data.update.*
 import com.hmx.harness.ui.chat.ChatListTestActivity
 import com.hmx.harness.ui.settings.SettingsScreen
-import com.hmx.harness.ui.settings.UpdateInstallationChoice
 import com.hmx.harness.ui.theme.HarnessTheme
 import com.hmx.harness.ui.update.UpdateDialog
 import kotlinx.coroutines.*
@@ -122,27 +121,6 @@ class TransferUiDeviceTest {
                 await { c.sync.profiles.all().none { p -> p.id == id } }
             }
         } finally { c.sync.cancel(); id?.let { c.sync.profiles.remove(it) }; server.close(); c.workspace.deleteProject(project); local.deleteRecursively(); remote.deleteRecursively() }
-    }
-    @Test fun updateInstallationMethodPersistsAndRootProgressIsNamedCorrectly() {
-        val saved = c.updates.installMethod.value
-        try {
-            openUi { UpdateInstallationChoice(c) }.use {
-                await { find("Installation method") != null }
-                fun label(method: UpdateInstallMethod) = when (method) { UpdateInstallMethod.AUTO -> "Automatic"; UpdateInstallMethod.ROOT -> "Root"; UpdateInstallMethod.SHIZUKU -> "Shizuku"; UpdateInstallMethod.SYSTEM -> "Android installer" }
-                for (method in listOf(UpdateInstallMethod.SHIZUKU, UpdateInstallMethod.ROOT, UpdateInstallMethod.SYSTEM, UpdateInstallMethod.AUTO)) {
-                    tap(label(c.updates.installMethod.value)); tap(label(method))
-                    assertEquals(method, UpdateManager(c.appContext, c.deviceAccess).installMethod.value)
-                }
-            }
-            val release = UpdateManager.LatestRelease("3", "3", "", "https://github.com/Sanuu7/AndroidHarness/releases", null, null, 0)
-            val step = mutableStateOf<UpdateManager.Step>(UpdateManager.Step.Installing(release, false, viaRoot = true))
-            openUi(scale = 1f) { UpdateDialog(step.value, {}, {}) }.use { scenario ->
-                await { find("Installing via Root") != null }
-                assertNull(find("Opening system installer"))
-                scenario.onActivity { step.value = UpdateManager.Step.Done(false, viaRoot = true) }
-                await { find("Update installed via Root.") != null }
-            }
-        } finally { c.updates.setInstallMethod(saved) }
     }
     private fun nodes(): List<AccessibilityNodeInfo> = buildList {
         instrumentation.uiAutomation.clearCache()

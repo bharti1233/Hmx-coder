@@ -530,7 +530,7 @@ private fun SettingsScreenContent(
                         SettingsPage.LIVE_MODE -> LiveModeSection(container, settings, onOpenVoice = { openPage(SettingsPage.VOICE) })
                         SettingsPage.APPEARANCE -> AppearanceSection(container, settings, scope)
                         SettingsPage.RUMBLE -> RumbleSection(settings, container.settings)
-                        SettingsPage.PRIVACY -> PrivacySection(container, settings, scope)
+                        SettingsPage.PRIVACY -> PrivacySection(container, settings, scope, onOpenBackup = { openPage(SettingsPage.BACKUP) })
                         SettingsPage.GITHUB -> GitHubIntegrationSection(container)
                         SettingsPage.SEARCH -> WebSearchSection(container)
                         SettingsPage.MCP -> McpSection(container, onOpenPlugins = { openPage(SettingsPage.PLUGINS) },
@@ -2488,10 +2488,54 @@ private fun ChatBehaviorSection(container: AppContainer, settings: AppSettings, 
 }
 
 @Composable
-private fun PrivacySection(container: AppContainer, settings: AppSettings, scope: kotlinx.coroutines.CoroutineScope) {
+private fun PrivacySection(container: AppContainer, settings: AppSettings, scope: kotlinx.coroutines.CoroutineScope, onOpenBackup: () -> Unit) {
     val uiContext = androidx.compose.ui.platform.LocalContext.current
     val context = LocalContext.current
+    val sessions by container.sessions.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
+    val projects by container.workspace.projects.collectAsStateWithLifecycle(initialValue = emptyList())
+    val memories by container.memory.memories.collectAsStateWithLifecycle(initialValue = emptyList())
+    val providers by container.providers.providers.collectAsStateWithLifecycle(initialValue = emptyList())
+    var confirmClear by remember { mutableStateOf(false) }
+    var clearing by remember { mutableStateOf(false) }
+    var dataMessage by remember { mutableStateOf<String?>(null) }
     SettingsHeader(uiContext.getString(R.string.ui_privacy))
+    SettingsPanel(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Privacy & data", style = MaterialTheme.typography.titleSmall)
+            Text("Chats: ${sessions.size}  ·  Projects: ${projects.size}  ·  Memories: ${memories.size}", style = MaterialTheme.typography.bodyMedium)
+            Text("Provider configurations: ${providers.size}. Credentials and chat data stay in app-private storage. AI providers, MCP servers, SSH hosts and GitHub may receive data only when you use those connections.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Export excludes API keys and provider credentials. Deleting local data does not delete information already sent to external services.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.hmx.harness.ui.common.OutlinedButton(onClick = onOpenBackup) { Text("Export or restore") }
+                com.hmx.harness.ui.common.Button(onClick = { confirmClear = true }, enabled = !clearing && (sessions.isNotEmpty() || memories.isNotEmpty())) {
+                    Text(if (clearing) "Clearing…" else "Clear chats and memories")
+                }
+            }
+            dataMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+        }
+    }
+    if (confirmClear) AlertDialog(
+        onDismissRequest = { if (!clearing) confirmClear = false },
+        title = { Text("Clear chats and memories?") },
+        text = { Text("This permanently deletes local conversations, execution history attached to those chats, and saved memories. Project files, projects, settings, provider credentials and the database remain. This does not delete data held by AI providers or other external services.") },
+        confirmButton = {
+            TextButton(enabled = !clearing, onClick = {
+                clearing = true
+                scope.launch {
+                    runCatching {
+                        container.sessions.deleteSessions(sessions)
+                        container.memory.clearAll()
+                    }.onSuccess { dataMessage = "Local chats and memories were cleared." }
+                        .onFailure { dataMessage = it.message ?: "Could not clear local data." }
+                    clearing = false
+                    confirmClear = false
+                }
+            }) { Text("Clear") }
+        },
+        dismissButton = { TextButton(enabled = !clearing, onClick = { confirmClear = false }) { Text("Cancel") } },
+    )
     val biometricTitle = if (settings.biometricLockEnabled)
         stringResource(R.string.settings_privacy_lock_disable_title)
     else stringResource(R.string.settings_privacy_lock_enable_title)
@@ -2968,21 +3012,20 @@ private fun UpdatesCard(container: AppContainer) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            UpdateInstallationChoice(container)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(
                     onClick = { scope.launch { container.updates.check(manual = true) } },
-                    enabled = step !is com.hmx.harness.data.update.UpdateManager.Step.Checking &&
-                        step !is com.hmx.harness.data.update.UpdateManager.Step.Downloading,
+                    enabled = step !is com.hmx.harness.data.update.UpdateManager.State.Checking &&
+                        step !is com.hmx.harness.data.update.UpdateManager.State.Downloading,
                 ) {
-                    if (step is com.hmx.harness.data.update.UpdateManager.Step.Checking) {
+                    if (step is com.hmx.harness.data.update.UpdateManager.State.Checking) {
                         androidx.compose.material3.LoadingIndicator(Modifier.size(22.dp), color = androidx.compose.material3.LocalContentColor.current)
                         Spacer(Modifier.width(8.dp))
                     }
-                    Text(if (step is com.hmx.harness.data.update.UpdateManager.Step.Checking) uiContext.getString(R.string.ui_checking) else uiContext.getString(R.string.settings_search_updates_title))
+                    Text(if (step is com.hmx.harness.data.update.UpdateManager.State.Checking) uiContext.getString(R.string.ui_checking) else uiContext.getString(R.string.settings_search_updates_title))
                 }
                 when (val s = step) {
-                    is com.hmx.harness.data.update.UpdateManager.Step.UpToDate -> {
+                    is com.hmx.harness.data.update.UpdateManager.State.UpToDate -> {
                         Spacer(Modifier.width(12.dp))
                         Icon(
                             Icons.Rounded.CheckCircle,
@@ -2993,13 +3036,21 @@ private fun UpdatesCard(container: AppContainer) {
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.settings_updates_uptodate), style = MaterialTheme.typography.labelMedium)
                     }
-                    is com.hmx.harness.data.update.UpdateManager.Step.Available -> {
+                    is com.hmx.harness.data.update.UpdateManager.State.Available -> {
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            uiContext.getString(R.string.ui_available_see_the_dialog, (s.release.tag).toString()),
+                            "Update ${s.release.versionName} available",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
+                    }
+                    is com.hmx.harness.data.update.UpdateManager.State.Downloading -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text("Downloading ${s.percent}%", style = MaterialTheme.typography.labelMedium)
+                    }
+                    is com.hmx.harness.data.update.UpdateManager.State.ReadyToInstall -> {
+                        Spacer(Modifier.width(12.dp))
+                        Text("Verified and ready to install", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     else -> {}
                 }

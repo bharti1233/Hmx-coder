@@ -48,6 +48,7 @@ class HarnessApp : Application() {
         com.hmx.harness.data.env.StorageGate.install(packageName,
             granted = { com.hmx.harness.data.env.StorageAccess.isGranted(this) })
         container = AppContainer(this)
+        com.hmx.harness.data.update.UpdateWorker.schedule(this)
         com.hmx.harness.data.env.StorageGate.installPrivilegedRoute { cwd ->
             container.deviceAccess.liveTier(cwd).let {
                 it == com.hmx.harness.data.env.ExecutionTier.ROOT || it == com.hmx.harness.data.env.ExecutionTier.PRIVILEGED

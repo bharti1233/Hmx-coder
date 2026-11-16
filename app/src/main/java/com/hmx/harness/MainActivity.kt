@@ -74,6 +74,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         container = (application as HarnessApp).container
+        if (intent?.getBooleanExtra(com.hmx.harness.data.update.UpdateNotificationManager.EXTRA_OPEN_UPDATES, false) == true) {
+            container.pendingSettingsScroll.value = "updates"
+        }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 kotlinx.coroutines.delay(2_000)
@@ -185,33 +188,13 @@ class MainActivity : AppCompatActivity() {
 
                 // The one global update dialog, above everything else.
                 val step by container.updates.step.collectAsStateWithLifecycle()
+                LaunchedEffect(Unit) { container.updates.refreshInstallState() }
                 UpdateDialog(
-                    step = step,
+                    state = step,
                     onDismiss = { container.updates.dismiss() },
-                    onUpdate = {
-                        val s = container.updates.step.value
-                        val release = when (s) {
-                            is com.hmx.harness.data.update.UpdateManager.Step.Available -> s.release
-                            is com.hmx.harness.data.update.UpdateManager.Step.Error -> s.release
-                            else -> null
-                        }
-                        if (release != null) {
-                            kotlinx.coroutines.MainScope().launch {
-                                container.updates.startUpdate(
-                                    release,
-                                    onOpenSystemInstaller = { apk ->
-                                        UpdateIntents.installApk(this@MainActivity, apk)
-                                    },
-                                    onOpenUnknownSourcesSettings = {
-                                        UpdateIntents.openUnknownSourcesSettings(this@MainActivity)
-                                    },
-                                )
-                            }
-                        } else {
-                            // Error without release context = check failure; retry the check.
-                            kotlinx.coroutines.MainScope().launch { container.updates.check(manual = true) }
-                        }
-                    },
+                    onDownload = { container.updates.downloadUpdate() },
+                    onCancelDownload = { container.updates.cancelDownload() },
+                    onInstall = { container.updates.installUpdate() },
                     onOpenSystemInstaller = { apk: File -> UpdateIntents.installApk(this, apk) },
                     onOpenUnknownSources = { UpdateIntents.openUnknownSourcesSettings(this) },
                 )
@@ -289,6 +272,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleSessionIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(com.hmx.harness.data.update.UpdateNotificationManager.EXTRA_OPEN_UPDATES, false) == true) {
+            container.pendingSettingsScroll.value = "updates"
+        }
         if (intent?.getStringExtra(com.hmx.harness.telegram.TelegramService.EXTRA_SETTINGS) == "telegram") {
             container.pendingSettingsScroll.value = "telegram"
         }
