@@ -1,5 +1,16 @@
 # Phase 1 test results
 
+## Phase 1.1 continuation
+
+Starting commit `aea32c0e7753b1191b8b4bc83f59fd827557a561`, verified clean on `security/phase-1-privacy-hardening`.
+`GIT_TERMINAL_PROMPT=0 git push --dry-run origin security/phase-1-privacy-hardening` failed with exit 128: no HTTPS GitHub username/credential configured. This was a dry run, not a push. No prior exposed token was reused.
+
+Added `.github/workflows/security-device-tests.yml`: API 26/35 emulators, full `connectedDebugAndroidTest` execution, no ignore/continue-on-error on tests, JUnit XML and failure logs uploaded with `always()`. This workflow has NOT run. Runner SDK command availability, KVM and API/system-image installation must be confirmed by its first run.
+
+New endpoint policy and GitHub credential-boundary tests have NOT run. Kotlin compilation, unit suite, lint, instrumented compilation/execution and APK/signature checks remain NOT EXECUTED. No fresh passing test count is claimed.
+
+Executed in this continuation: `git diff --check` passed; Python XML assertions passed for disabled manifest backup/cleartext, all three complete backup-rule blocks and exact loopback domain set. A source assertion confirmed neither general process environment calls `GitHubProvision.processEnvironment`. This is limited static evidence, not proof that arbitrary app-UID code cannot obtain a credential.
+
 Status: INCOMPLETE. No fresh Android/JVM Gradle results or signed APK builds available yet.
 
 Baseline `fd9ee02`: historical Actions run `43788648255` reports 2,247 passing unit tests, debug lint and signed/debug APK builds. This is not a pre-change rerun. Instrumentation was not executed in that run.

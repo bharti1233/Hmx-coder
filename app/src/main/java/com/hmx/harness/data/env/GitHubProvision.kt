@@ -10,12 +10,20 @@ object GitHubProvision {
 
     /** Recover only the exact formats emitted by older HMX builds; ambiguity fails closed. */
     fun legacyToken(prefix: File): String? {
+        return legacyToken(
+            File(prefix, TOKEN_FILE).takeIf { it.isFile }?.readText(),
+            File(prefix, GH_HOSTS_FILE).takeIf { it.isFile }?.readText(),
+            File(prefix, "etc/gitconfig").takeIf { it.isFile }?.readText(),
+        )
+    }
+
+    fun legacyToken(tokenFile: String?, hostsFile: String?, gitConfig: String?): String? {
         val candidates = buildSet {
-            File(prefix, TOKEN_FILE).takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
-            File(prefix, GH_HOSTS_FILE).takeIf { it.isFile }?.readLines()?.forEach { line ->
+            tokenFile?.trim()?.takeIf { it.isNotBlank() }?.let(::add)
+            hostsFile?.lineSequence()?.forEach { line ->
                 if (line.trimStart().startsWith("oauth_token:")) line.substringAfter("oauth_token:").trim().takeIf { it.isNotBlank() }?.let(::add)
             }
-            File(prefix, "etc/gitconfig").takeIf { it.isFile }?.readText()?.let { text ->
+            gitConfig?.let { text ->
                 Regex("https://x-access-token:([^@\\s]+)@github\\.com/").findAll(text).forEach { add(it.groupValues[1]) }
             }
         }

@@ -10,8 +10,8 @@ class KeyStoreManager(context: Context) {
     private val prefs by lazy { createPrefs(context.applicationContext) }
 
     fun verifyAvailable() {
-        // Force key opening before the composition root starts background work.
-        prefs.contains("phase1_availability_probe")
+        // Decrypt every stored entry: contains() alone does not authenticate values.
+        prefs.all
     }
 
     fun chatGptCredentials(): String? = prefs.getString("chatgpt_accounts", null)
@@ -35,13 +35,26 @@ class KeyStoreManager(context: Context) {
         check(mcpConfiguration() == value) { "Could not verify encrypted MCP configuration. Original data was preserved." }
     }
 
-    private fun createPrefs(context: Context) = EncryptedSharedPreferences.create(
+    private fun createPrefs(context: Context): android.content.SharedPreferences {
+        val existing = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).all.isNotEmpty()
+        val keystore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (existing && !keystore.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
+            throw CredentialStorageException(CredentialStorageProblem.MISSING_KEY)
+        }
+        return try { EncryptedSharedPreferences.create(
         context,
         PREFS_NAME,
         MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+        ) } catch (_: android.security.keystore.KeyPermanentlyInvalidatedException) {
+            throw CredentialStorageException(CredentialStorageProblem.INVALIDATED_KEY)
+        } catch (_: java.security.GeneralSecurityException) {
+            throw CredentialStorageException(CredentialStorageProblem.UNREADABLE_STORAGE)
+        } catch (_: java.io.IOException) {
+            throw CredentialStorageException(CredentialStorageProblem.UNREADABLE_STORAGE)
+        }
+    }
 
     @Synchronized fun putKey(providerId: String, apiKey: String) {
         putProviderControls(providerId, providerKeyPool(providerId).replaceDefault(apiKey.trim()), providerProxy(providerId))

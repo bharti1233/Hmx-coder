@@ -39,6 +39,8 @@ class HarnessApp : Application() {
         private set
     var credentialStorageUnavailable: Boolean = false
         private set
+    var credentialRecoveryMessage: String? = null
+        private set
 
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate() {
@@ -51,9 +53,11 @@ class HarnessApp : Application() {
             granted = { com.hmx.harness.data.env.StorageAccess.isGranted(this) })
         try {
             KeyStoreManager(this).verifyAvailable()
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // Keep the original encrypted files intact. MainActivity explains recovery.
             credentialStorageUnavailable = true
+            credentialRecoveryMessage = (error as? com.hmx.harness.data.CredentialStorageException)?.problem?.recoveryMessage
+                ?: com.hmx.harness.data.CredentialStorageProblem.UNREADABLE_STORAGE.recoveryMessage
             return
         }
         container = AppContainer(this)

@@ -19,4 +19,6 @@ Identity, Room schema/data, DataStore, signing key and release secrets must rema
 
 ## Implementation checkpoint
 
+Phase 1.1 confirmed that broad GitHub environment injection in `aea32c0` exposed credentials to unrelated child processes. Injection sites were removed; restricted authenticated subprocess support is still incomplete. Missing master-key detection and full stored-value decryption checks were added; startup reconnection UX remains incomplete. Privileged fixed-path recovery and network regression tests were added but not executed. The current branch is not release-ready.
+
 Backup eligibility and global cleartext policy are addressed in source; XML parsing and explicit-domain checks passed. Global MCP persistence now uses encrypted preferences and verified migration, with JVM/device tests added but unexecuted. GitHub config generation no longer emits token files or token URLs; encrypted-master migration and process environment delivery are implemented but execution-tier checks remain pending. Unreadable credential storage is preserved; startup presents an error rather than resetting credentials. Preview mixed content is disabled. None of these changes has fresh Gradle/Actions or device verification, so findings remain open for acceptance.

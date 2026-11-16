@@ -79,7 +79,8 @@ class MainActivity : AppCompatActivity() {
                 androidx.compose.material3.MaterialTheme {
                     androidx.compose.material3.Surface {
                         androidx.compose.material3.Text(
-                            "Secure credentials are unavailable. Your saved data has been preserved. Unlock the device and restart HMXHARNESS. If the device key was permanently lost, credentials must be recovered from an encrypted settings export or re-entered; do not clear app data to troubleshoot this error.",
+                            (application as HarnessApp).credentialRecoveryMessage.orEmpty() +
+                                " Restart HMXHARNESS after unlocking. Do not clear app data; projects and conversations have not been removed.",
                         )
                     }
                 }

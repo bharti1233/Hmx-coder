@@ -933,7 +933,6 @@ class LinuxEnvironmentManager(
         // "detected dubious ownership". The same config carries the commit
         // identity + GitHub token rewrite (see gitGlobalConfig).
         put("GIT_CONFIG_GLOBAL", gitGlobalConfig().absolutePath)
-        putAll(GitHubProvision.processEnvironment(githubToken()))
         put("HARNESS_GIT_CONFIG", gitGlobalConfig().absolutePath)
         // Bug fix: the Termux-built git also reads a SYSTEM config from its old
         // prefix, where reading is denied and git exits 128 before running.
@@ -1115,8 +1114,8 @@ class LinuxEnvironmentManager(
         materializeGitHub(recoverLegacy = false)
         if (strict) GitHubProvision.checkMaterialized(prefix, githubToken())
         if (shizuku.isGranted()) {
-            if (strict) syncShellTierAuth(shizuku) else runCatching { syncShellTierAuth(shizuku) }
-                .onFailure { Log.e(TAG, "shell-tier GitHub auth sync failed", it) }
+            if (strict) syncShellTierAuth(shizuku, recoverLegacy = false) else runCatching { syncShellTierAuth(shizuku, recoverLegacy = false) }
+                .onFailure { Log.e(TAG, "Shell-tier GitHub credential cleanup failed; retry from GitHub settings.") }
         }
         // The staging/deploy state may have changed under the cached flag;
         // let the next privileged command re-verify the deployed hash.
@@ -1132,9 +1131,35 @@ class LinuxEnvironmentManager(
      * the deployed prefix's auth files, it runs on every auth change and
      * after every successful deploy.
      */
-    private suspend fun syncShellTierAuth(shizuku: ShizukuManager) {
+    private suspend fun syncShellTierAuth(shizuku: ShizukuManager, recoverLegacy: Boolean = true) {
         if (!shizuku.isTmpPrefixDeployed(deployedTag())) return
-        val token = githubToken()
+        var token = githubToken()
+        if (token == null && recoverLegacy) {
+            // Fixed paths and direct argv only. Never run user-supplied recovery commands,
+            // expose file contents as tool output, or interpolate a recovered token into argv.
+            suspend fun readLegacy(relative: String): String? {
+                val path = "$tmpPrefix/$relative"
+                val exists = shizuku.runPrivileged(arrayOf("/system/bin/test", "-e", path),
+                    env = null, dir = null, timeoutMs = 5_000, maxBytes = 1_000)
+                    ?: error("Could not inspect legacy GitHub credentials. Original data was preserved.")
+                check(!exists.timedOut && exists.exitCode in 0..1) { "Could not inspect legacy GitHub credentials." }
+                if (exists.exitCode == 1) return null
+                val result = shizuku.runPrivileged(arrayOf("/system/bin/cat", path),
+                    env = null, dir = null, timeoutMs = 5_000, maxBytes = 64 * 1024)
+                    ?: error("Could not read legacy GitHub credentials. Original data was preserved.")
+                check(!result.timedOut && result.exitCode == 0 && result.output.length < 60 * 1024) {
+                    "Could not safely read legacy GitHub credentials. Original data was preserved."
+                }
+                return result.output
+            }
+            val recovered = GitHubProvision.legacyToken(readLegacy(GitHubProvision.TOKEN_FILE),
+                readLegacy(GitHubProvision.GH_HOSTS_FILE), readLegacy("etc/gitconfig"))
+            if (recovered != null) {
+                checkNotNull(githubTokenSaver) { "Reconnect GitHub before migrating legacy credentials." }(recovered)
+                check(githubToken() == recovered) { "Could not verify recovered GitHub credentials. Original data was preserved." }
+                token = recovered
+            }
+        }
         val gitconfig = GitHubProvision.gitConfigBody(token)
         val hosts = GitHubProvision.ghHostsYaml(token)
         val script = buildString {
@@ -1162,7 +1187,7 @@ class LinuxEnvironmentManager(
         )
         if (r == null || !r.output.contains("AUTH_SYNC_OK")) {
             error(
-                "AUTH_SYNC_OK not confirmed (exit=${r?.exitCode}, stderr=${r?.stderr?.take(200)})",
+                "GitHub credential cleanup was not confirmed. Check the privileged connection and retry.",
             )
         }
     }
@@ -1298,7 +1323,6 @@ class LinuxEnvironmentManager(
         // Bug 5 fix: same safe.directory global config for the shell-uid
         // tier, written under the deployed prefix.
         put("GIT_CONFIG_GLOBAL", "$tmpPrefix/etc/gitconfig")
-        putAll(GitHubProvision.processEnvironment(githubToken()))
         put("HARNESS_GIT_CONFIG", "$tmpPrefix/etc/gitconfig")
         // Same unreadable-system-config fix as the app-side env: derived the
         // same way (the deployed copy is staged from this tree), and the

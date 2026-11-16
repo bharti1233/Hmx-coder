@@ -1,5 +1,11 @@
 # Phase 1 implementation report
 
+## Phase 1.1 continuation checkpoint
+
+Status: **INCOMPLETE**. Continued the existing branch at `aea32c0`, without uncommitted user changes. Removed ambient GitHub token injection from both process environments; private shell authentication requires a restricted executor and is not complete. Added fixed-path privileged legacy recovery with read-back verification; logout bypasses recovery. Added missing-master-key preflight, all-value decryption during startup checks, distinct sanitized recovery messages, loopback connected-address validation and HTTP form-token rejection. Added network/boundary tests and a full-suite emulator workflow. These are source changes, not runtime-verified fixes.
+
+GitHub publication dry-run failed because authentication is unavailable. No fresh Gradle/Actions/emulator or device evidence exists. See the credential inventory, GitHub auth matrix and OPPO A38 test plan for current boundaries and explicit pending tests.
+
 HMXHARNESS / HMXPANEL (`com.hmx.harness`). Branch `security/phase-1-privacy-hardening`, baseline `fd9ee02`. **IN PROGRESS / NOT ACCEPTED FOR RELEASE.**
 
 ## Implemented so far

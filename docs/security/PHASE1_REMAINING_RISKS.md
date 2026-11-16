@@ -2,6 +2,10 @@
 
 Status: incomplete implementation and verification. Do not release on the basis of these documents.
 
+Phase 1.1: ambient GitHub token injection has been removed. Private Git/gh subprocess operations are currently not authenticated by the app; a restricted broker/executor with safe Git config and child-process boundaries is required. No command parser/allowlist is claimed implemented. This is an explicit functional gap and keeps acceptance INCOMPLETE.
+
+Privileged Shizuku/ADB fixed-path recovery now persists and verifies before cleanup, but root-only orphan recovery and deployment-order edge cases are unverified. Master-key preflight now refuses key regeneration with existing ciphertext and authenticates stored values. Recovery UI still needs a safe archive/reconnect action, and background entry points need startup-failure handling.
+
 - No fresh CI unit/lint/APK/signature results; no instrumentation execution.
 - Keystore loss must be tested across all eager AppContainer credential readers: preserving ciphertext must not introduce a startup crash loop.
 - Global MCP migration is implemented; workspace/plugin configurations can still contain credentials. Those paths need separate review and a compatibility-preserving storage design.

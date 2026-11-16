@@ -2,6 +2,8 @@
 
 Status: implementation in progress; no live endpoint tests performed.
 
+Phase 1.1 regression matrix: exact localhost/127.0.0.1/::1, LAN/remote/lookalike rejection, header/query/form credential rejection now have JVM test source (`EndpointSecurityTest`) but are NOT EXECUTED. Network interceptors check the connected address is loopback for HTTP. TLS certificate/hostname, live MCP OAuth/refresh, provider streaming, voice and WebView regression remain NOT EXECUTED. No certificate validator or hostname verifier was replaced. API 26/35 emulator workflow is prepared but not run.
+
 | Connection | Source under `app/src/main/java/com/hmx/harness` | Transport / policy |
 |---|---|---|
 | External AI providers | `llm/Llm.kt:210`, `llm/ProviderNetwork.kt:20` | OkHttp, default certificate/hostname verification; remote HTTP blocked by Android policy |

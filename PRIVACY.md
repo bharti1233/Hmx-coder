@@ -58,8 +58,10 @@ Global MCP configurations migrate into existing Android Keystore-backed encrypte
 preferences. Legacy files are removed only after encrypted read-back succeeds.
 Failures preserve original data and block configuration replacement with an
 actionable error. User-authored workspace configuration can still contain secrets.
-GitHub toolchain authentication uses process environment values instead of saved
-token files; programs running with those credentials can access them in memory.
+General shell, terminal and background process environments do not receive the
+application's GitHub token. Authenticated Git/gh subprocess support is pending a
+restricted executor; GitHub API integration continues to use encrypted credentials
+directly. Legacy token-file cleanup is being migrated and is not runtime-verified.
 
 Keystore invalidation, uninstall or device migration may make credentials
 unrecoverable. The app does not automatically delete unreadable encrypted records;

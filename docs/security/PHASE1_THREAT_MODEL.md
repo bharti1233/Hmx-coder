@@ -12,6 +12,8 @@ Keystore protects keys at rest, not against arbitrary code executing as the appl
 
 ## Threats and controls
 
+Phase 1.1 clarification: environment-only authentication is not a sufficient boundary. Any shell inheriting a token can dump it or pass it to unrelated children; Git hooks/helpers and gh extensions bypass simplistic command-name allowlists. Ambient injection was removed. A constrained operation-specific broker/executor is still required before authenticated subprocess support can be approved.
+
 | Threat | Severity | Evidence | Control | Compatibility risk / validation |
 |---|---|---|---|---|
 | Disk credential disclosure | High | `data/env/GitHubProvision.kt:40-92`; `tools/mcp/McpManager.kt:116-156` under `app/src/main/java/com/hmx/harness` | Encrypted verified persistence; process-scoped GitHub auth | Test MCP restart and git/gh in every supported execution tier |
