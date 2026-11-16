@@ -23,6 +23,8 @@ data class ToolContext(
     val imageInputAllowed: Boolean = true,
     val configuration: com.hmx.harness.config.HarnessConfig? = null,
     val skills: com.hmx.harness.skills.SkillStore? = null,
+    /** Engine-owned, single-use confirmation. Never populated from model arguments. */
+    val approveGitHub: suspend (String) -> Boolean = { false },
 )
 
 data class ToolResult(
@@ -100,6 +102,7 @@ class ToolRegistry(private val tools: List<Tool>) {
             pullRequests: (() -> com.hmx.harness.github.PullRequestPublisher?)? = null,
             sessionMessages: suspend (String) -> List<com.hmx.harness.core.ChatMessage> = { emptyList() },
             appSettings: com.hmx.harness.data.SettingsRepository? = null,
+            githubToken: (suspend () -> String?)? = null,
         ): ToolRegistry {
             val baseTools = mutableListOf<Tool>(
                 ListDirTool(),
@@ -161,6 +164,7 @@ class ToolRegistry(private val tools: List<Tool>) {
                 baseTools += AppSettingsFindTool(read)
                 baseTools += AppSettingsChangeTool(appSettings, read)
             }
+            if (githubToken != null) baseTools += RestrictedGitHubTool(githubToken)
             if (dhizuku != null && deviceAccess != null) baseTools += DeviceOwnerShellTool(dhizuku, deviceAccess)
             if (pullRequests != null) baseTools += GitHubCreatePullRequestTool(pullRequests, sessionMessages)
             if (artifactLoader != null) {

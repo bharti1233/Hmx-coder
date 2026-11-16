@@ -1216,6 +1216,11 @@ class AgentEngine(
             onPackageProgress = { emitEvent(AgentEvent.PackageProgress(call.id, it)) },
             configuration = runConfig?.config,
             skills = runConfig?.skills,
+            approveGitHub = { preview ->
+                val request = ApprovalRequest(call, "GitHub repository operation", preview, "github-once:${call.id}")
+                emitEvent(AgentEvent.ApprovalNeeded(request))
+                request.response.await()
+            },
             imageInputAllowed = requestOptions.modelCatalogs[config.id]?.firstOrNull { it.id == config.model }?.imageInput
                 ?: com.hmx.harness.llm.visionCapable(config.model))
 
@@ -1355,6 +1360,7 @@ class AgentEngine(
         val isSdkInstall = call.name == com.hmx.harness.tools.AndroidSdkInstallTool.NAME
         val isPkgInstall = call.name == "pkg_install" || isSdkInstall
         val approved = when {
+            tool is com.hmx.harness.tools.RestrictedGitHubTool -> true // Exact confirmation inside tool, never remembered.
             configPermission == "ask" -> {
                 val request = ApprovalRequest(call, "Project configuration requires confirmation · ${tool.description}",
                     computeDiffPreview(call, workspace) ?: command?.take(400), "config:${runConfig?.config?.fingerprint}:$grantKey")

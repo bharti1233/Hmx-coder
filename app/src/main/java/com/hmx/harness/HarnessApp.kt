@@ -336,6 +336,7 @@ class AppContainer(val appContext: Context) {
         pullRequests = { githubRepositories },
         sessionMessages = { sessions.messages(it) },
         appSettings = settings,
+        githubToken = { github.accessToken() },
     )
     val mcp = com.hmx.harness.tools.mcp.McpManager(appContext, linuxEnv, keys, codeGraph, configuration)
     val github = com.hmx.harness.github.GitHubAuth(BuildConfig.GITHUB_CLIENT_ID,

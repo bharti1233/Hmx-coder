@@ -263,6 +263,8 @@ dependencies {
     // SPAKE2 for Android 11+ wireless debugging pairing, compiled into libadb.so.
     implementation("io.github.vvb2060.ndk:boringssl:20250114")
     implementation(libs.okhttp)
+    // In-process HTTPS Git transport: no token-bearing subprocess or askpass service.
+    implementation("org.eclipse.jgit:org.eclipse.jgit:5.13.5.202508271544-r")
     implementation(libs.kotlinx.serialization.json)
     implementation("androidx.javascriptengine:javascriptengine:1.1.0")
     // CEL compiles and checks optional per-model reasoning request mappings on device.
