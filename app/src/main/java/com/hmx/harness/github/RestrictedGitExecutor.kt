@@ -15,6 +15,13 @@ import org.eclipse.jgit.util.ProcessResult
 /** No shell, hooks, helper, filter, SSH or submodule execution in this path. */
 internal class RestrictedGitExecutor {
     init { RestrictedGitRuntime.initialize() }
+    /** Desktop GC uses java.lang.management for PID locks, unavailable on Android.
+     * Maintenance remains an explicit public shell operation, outside authenticated transport.
+     */
+    private class AndroidRepository(builder: FileRepositoryBuilder) :
+        org.eclipse.jgit.internal.storage.file.FileRepository(builder) {
+        override fun autoGC(monitor: org.eclipse.jgit.lib.ProgressMonitor) { }
+    }
     private class NoPrograms : FS_POSIX() {
         init { setUmask(0x3f) }
         override fun newInstance(): FS = NoPrograms()
@@ -34,8 +41,9 @@ internal class RestrictedGitExecutor {
         Files.walk(directory.toPath()).use { paths ->
             require(paths.noneMatch { Files.isSymbolicLink(it) }) { "Symlink repository metadata is unsupported." }
         }
-        return FileRepositoryBuilder().setFS(NoPrograms()).setGitDir(directory).setWorkTree(root)
-            .setMustExist(true).build().also { repo ->
+        val builder = FileRepositoryBuilder().setFS(NoPrograms()).setGitDir(directory).setWorkTree(root)
+            .setMustExist(true).setup()
+        return AndroidRepository(builder).also { repo ->
                 try { validate(repo) } catch (error: Exception) { repo.close(); throw error }
             }
     }

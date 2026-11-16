@@ -21,7 +21,11 @@ internal object RestrictedGitRuntime {
             override fun openSystemConfig(parent: Config?, fs: FS) = empty(fs)
             override fun openJGitConfig(parent: Config?, fs: FS) = empty(fs)
             private fun empty(fs: FS) = object : FileBasedConfig(null as File?, fs) {
-                override fun load() { clear() }
+                override fun load() {
+                    clear()
+                    // Monitoring.registerMBean returns before touching desktop JMX APIs.
+                    setBoolean("jmx", null, "WindowCacheStats", false)
+                }
                 override fun save() { }
                 override fun isOutdated() = false
             }

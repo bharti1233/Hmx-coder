@@ -8,6 +8,21 @@ import org.junit.Test
 class RestrictedGitExecutorTest {
     private val url = "https://github.com/owner/repository.git"
 
+    @Test fun androidRepositoryDoesNotRunDesktopAutomaticMaintenance() {
+        val root = Files.createTempDirectory("restricted-git-gc-").toFile().canonicalFile
+        try {
+            val executor = RestrictedGitExecutor()
+            Git.init().setDirectory(root).call().close()
+            executor.open(root).use { repo ->
+                repo.autoGC(org.eclipse.jgit.lib.NullProgressMonitor.INSTANCE)
+                assertFalse(java.io.File(root, ".git/gc.pid").exists())
+                assertEquals("AndroidRepository", repo.javaClass.simpleName)
+            }
+            assertFalse(org.eclipse.jgit.util.SystemReader.getInstance().userConfig
+                .getBoolean("jmx", "WindowCacheStats", false))
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun statusStageCommitAndBranchDoNotExecuteHooks() {
         val root = Files.createTempDirectory("restricted-git-").toFile().canonicalFile
         try {

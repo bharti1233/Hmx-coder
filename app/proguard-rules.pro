@@ -42,3 +42,18 @@
 # detects their availability before using the optional implementations.
 -dontwarn com.github.luben.zstd.**
 -dontwarn org.brotli.dec.**
+
+# JGit desktop-only management references. RestrictedGitRuntime supplies empty
+# user/system config with JMX disabled, and AndroidRepository overrides autoGC
+# so GC$PidLock cannot reach ManagementFactory. No blanket JGit suppression.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
+-dontwarn javax.management.InstanceAlreadyExistsException
+-dontwarn javax.management.InstanceNotFoundException
+-dontwarn javax.management.JMException
+-dontwarn javax.management.MBeanRegistrationException
+-dontwarn javax.management.MBeanServer
+-dontwarn javax.management.MalformedObjectNameException
+-dontwarn javax.management.NotCompliantMBeanException
+-dontwarn javax.management.ObjectInstance
+-dontwarn javax.management.ObjectName
