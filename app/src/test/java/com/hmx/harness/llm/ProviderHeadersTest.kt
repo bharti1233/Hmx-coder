@@ -98,7 +98,11 @@ class ProviderHeadersTest {
     }
 
     @Test fun `model discovery never forwards custom headers through a redirect`() = runBlocking {
-        ServerSocket(0).use { server ->
+        val certificate = okhttp3.tls.HeldCertificate.Builder().addSubjectAlternativeName("127.0.0.1").build()
+        val serverTls = okhttp3.tls.HandshakeCertificates.Builder().heldCertificate(certificate).build()
+        val clientTls = okhttp3.tls.HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
+        val client = okhttp3.OkHttpClient.Builder().sslSocketFactory(clientTls.sslSocketFactory(), clientTls.trustManager).build()
+        serverTls.sslSocketFactory().createServerSocket(0).use { server ->
             server.soTimeout = 1500
             val seen = CopyOnWriteArrayList<String>()
             val worker = thread(isDaemon = true) {
@@ -116,7 +120,7 @@ class ProviderHeadersTest {
                     }
                 } catch (_: SocketTimeoutException) { }
             }
-            val result = ModelCatalog.listModels(config().copy(baseUrl = "http://127.0.0.1:${server.localPort}"), "fixture-key")
+            val result = ModelCatalog.listModels(config().copy(baseUrl = "https://127.0.0.1:${server.localPort}"), "fixture-key", client)
             worker.join(4000)
             assertTrue(result is ModelCatalog.Result.Failed)
             assertEquals(1, seen.size)

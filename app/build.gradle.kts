@@ -282,6 +282,7 @@ dependencies {
     implementation(libs.sora.editor)
 
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:okhttp-tls:4.12.0")
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.core)

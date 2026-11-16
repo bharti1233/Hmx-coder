@@ -60,7 +60,11 @@ class ProviderNetworkTest {
     @Test fun everyApiProtocolUsesTheConfiguredProxyAndRotatesRejectedKeys() = kotlinx.coroutines.runBlocking {
         val previousNetwork = ProviderNetwork.settings; val previousPools = RotatingKeyProvider.pools
         try {
-            for (type in ProviderType.entries) TestServer().use { proxy ->
+            val certificate = okhttp3.tls.HeldCertificate.Builder().addSubjectAlternativeName("provider.invalid").build()
+            val serverTls = okhttp3.tls.HandshakeCertificates.Builder().heldCertificate(certificate).build()
+            val clientTls = okhttp3.tls.HandshakeCertificates.Builder().addTrustedCertificate(certificate.certificate).build()
+            val client = OkHttpClient.Builder().sslSocketFactory(clientTls.sslSocketFactory(), clientTls.trustManager).build()
+            for (type in ProviderType.entries) TestServer(serverTls).use { proxy ->
                 proxy.start()
                 proxy.enqueue(TestResponse().setResponseCode(401).setBody("{\"error\":{\"message\":\"Rejected\",\"type\":\"invalid_api_key\"}}"))
                 val success = when (type) {
@@ -72,9 +76,15 @@ class ProviderNetworkTest {
                 proxy.enqueue(TestResponse().setHeader("Content-Type", "text/event-stream").setBody(success))
                 ProviderNetwork.settings = { ProviderProxy(ProviderProxyMode.CUSTOM, host = proxy.hostName, port = proxy.port) }
                 RotatingKeyProvider.pools = { ProviderKeyPool(listOf(ProviderApiKey("a", value = "first-key"), ProviderApiKey("b", value = "second-key")), rotate = false) }
-                val config = ProviderConfig("proxy-$type", "Fixture", type, "http://provider.invalid/v1", "fixture-model")
+                val config = ProviderConfig("proxy-$type", "Fixture", type, "https://provider.invalid/v1", "fixture-model")
+                val provider = when (type) {
+                    ProviderType.OPENAI_COMPAT -> OpenAiCompatProvider(client, ProviderFactory.json)
+                    ProviderType.OPENAI_RESPONSES -> OpenAiResponsesProvider(client, ProviderFactory.json)
+                    ProviderType.ANTHROPIC -> AnthropicProvider(client, ProviderFactory.json)
+                    ProviderType.GEMINI -> GeminiProvider(client, ProviderFactory.json)
+                }
                 val events = kotlinx.coroutines.withTimeout(8000) {
-                    ProviderFactory.create(config).streamChat(config, "stale-key", "", emptyList(), emptyList(), RequestOptions()).toList()
+                    RotatingKeyProvider.wrap(config, provider).streamChat(config, "stale-key", "", emptyList(), emptyList(), RequestOptions()).toList()
                 }
                 fun flatten(event: StreamEvent): List<StreamEvent> = if (event is StreamEvent.Batch) event.events.flatMap(::flatten) else listOf(event)
                 val flat = events.flatMap(::flatten)
@@ -154,7 +164,7 @@ class ProviderNetworkTest {
     private data class Recorded(val requestLine: String, val headers: Map<String, String>) {
         fun getHeader(name: String) = headers[name.lowercase()]
     }
-    private class TestServer : java.io.Closeable {
+    private class TestServer(private val tls: okhttp3.tls.HandshakeCertificates? = null) : java.io.Closeable {
         private val server = java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"))
         private val responses = java.util.concurrent.LinkedBlockingQueue<TestResponse>()
         private val requests = java.util.concurrent.LinkedBlockingQueue<Recorded>()
@@ -170,7 +180,22 @@ class ProviderNetworkTest {
                     while (!server.isClosed) {
                         val socket = server.accept(); sockets += socket
                         kotlin.concurrent.thread(isDaemon = true) {
-                            socket.use { connection ->
+                            val tunneled = if (tls != null) {
+                                socket.soTimeout = 5000
+                                val input = socket.getInputStream()
+                                var tail = ""
+                                while (!tail.endsWith("\r\n\r\n")) {
+                                    val next = input.read(); check(next >= 0)
+                                    tail = (tail + next.toChar()).takeLast(4)
+                                }
+                                socket.getOutputStream().write("HTTP/1.1 200 Connection Established\r\n\r\n".toByteArray())
+                                socket.getOutputStream().flush()
+                                (tls.sslSocketFactory().createSocket(socket, "provider.invalid", socket.port, true) as javax.net.ssl.SSLSocket).apply {
+                                    useClientMode = false
+                                    startHandshake()
+                                }
+                            } else socket
+                            tunneled.use { connection ->
                                 connection.soTimeout = 5000
                                 val input = connection.getInputStream().buffered()
                                 fun line(): String {

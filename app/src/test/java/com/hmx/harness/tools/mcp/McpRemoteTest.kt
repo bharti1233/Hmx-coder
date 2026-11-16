@@ -500,11 +500,25 @@ class McpOAuthTest {
             assertEquals("sec-1", registered.clientSecret)
             val url = McpOAuth.authorizationUrl(registered, "s1", "c1")
             assertTrue(url.contains("client_id=cid-1"))
-            val tokens = McpOAuth.exchangeCode(client, registered, "abc", "verifier")
+            try {
+                McpOAuth.exchangeCode(client, registered, "abc", "verifier")
+                fail("HTTP OAuth token exchange must be refused")
+            } catch (_: McpOAuthException) { }
+            val secureContext = registered.copy(tokenEndpoint = "https://as.example.com/token")
+            val secureClient = OkHttpClient.Builder().addInterceptor { chain ->
+                assertEquals("https", chain.request().url.scheme)
+                val form = chain.request().body as okhttp3.FormBody
+                val refresh = (0 until form.size).any { form.name(it) == "grant_type" && form.value(it) == "refresh_token" }
+                okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(200).message("OK").body(okhttp3.ResponseBody.create(null,
+                        if (refresh) "{\"access_token\":\"at-2\",\"expires_in\":60}"
+                        else "{\"access_token\":\"at-1\",\"refresh_token\":\"rt-1\",\"expires_in\":3600}")).build()
+            }.build()
+            val tokens = McpOAuth.exchangeCode(secureClient, secureContext, "abc", "verifier")
             assertEquals("at-1", tokens.accessToken)
             assertEquals("rt-1", tokens.refreshToken)
             assertTrue(tokens.expiresAtMs != null)
-            val refreshed = McpOAuth.refreshTokens(client, registered, tokens.refreshToken!!)
+            val refreshed = McpOAuth.refreshTokens(secureClient, secureContext, tokens.refreshToken!!)
             assertEquals("at-2", refreshed.accessToken)
         } finally {
             server.stop()
