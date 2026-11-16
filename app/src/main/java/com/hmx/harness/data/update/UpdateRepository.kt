@@ -125,7 +125,10 @@ class UpdateRepository(
         val response = execute(Request.Builder().url(url).header("Accept", "application/octet-stream").build())
         response.use {
             check(it.isSuccessful) { "Metadata download failed (HTTP ${it.code})." }
-            val bytes = it.body?.bytes() ?: error("The metadata asset is empty.")
+            val body = it.body ?: error("The metadata asset is empty.")
+            require(body.contentLength() <= UpdateContract.MAX_METADATA_BYTES || body.contentLength() < 0) { "The metadata asset is too large." }
+            val source = body.source()
+            val bytes = source.readByteArray(UpdateContract.MAX_METADATA_BYTES.toLong() + 1)
             require(bytes.size <= UpdateContract.MAX_METADATA_BYTES) { "The metadata asset is too large." }
             return bytes.toString(Charsets.UTF_8)
         }

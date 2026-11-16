@@ -34,7 +34,7 @@ object ApkVerificationPolicy {
         require(candidate.signerSha256.isNotEmpty() && candidate.signerSha256.all { it in trustedCertificates }) {
             "The APK signing certificate is not trusted."
         }
-        require(installedSigners.isNotEmpty() && candidate.signerSha256 == installedSigners) {
+        require(installedSigners.isNotEmpty() && installedSigners.all { it in candidate.signerSha256 }) {
             "The APK signing identity does not match the installed application."
         }
     }
@@ -75,10 +75,10 @@ class ApkSignatureVerifier(private val context: Context) {
         if (Build.VERSION.SDK_INT >= 28) longVersionCode else @Suppress("DEPRECATION") versionCode.toLong()
 
     private fun PackageInfo.signerDigests(): Set<String> {
-        val signatures: Array<Signature> = if (Build.VERSION.SDK_INT >= 28) {
-            signingInfo?.apkContentsSigners.orEmpty()
+        val signatures: List<Signature> = if (Build.VERSION.SDK_INT >= 28) {
+            signingInfo?.apkContentsSigners?.toList().orEmpty()
         } else {
-            @Suppress("DEPRECATION") this.signatures.orEmpty()
+            @Suppress("DEPRECATION") this.signatures?.toList().orEmpty()
         }
         return signatures.map { signature ->
             MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())

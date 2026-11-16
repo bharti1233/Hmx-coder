@@ -162,10 +162,12 @@ class UpdateManager(
             else -> return
         }
         scope.launch(Dispatchers.IO) {
-            when (val result = installer.install(ready.apk, ready.release)) {
-                UpdateInstaller.Result.Started -> _state.value = State.Installing(ready.release)
-                UpdateInstaller.Result.PermissionRequired -> _state.value = State.PermissionRequired(ready.release, ready.apk)
-                is UpdateInstaller.Result.Failed -> _state.value = State.Failed(Stage.INSTALL, result.message, ready.release)
+            val apk = ready.apk
+            val release = ready.release
+            when (val result = installer.install(apk, release)) {
+                UpdateInstaller.Result.Started -> _state.value = State.Installing(release)
+                UpdateInstaller.Result.PermissionRequired -> _state.value = State.PermissionRequired(release, apk)
+                is UpdateInstaller.Result.Failed -> _state.value = State.Failed(Stage.INSTALL, result.message, release)
             }
         }
     }
@@ -206,5 +208,5 @@ class UpdateManager(
         return InstalledVersion(context.packageName, info.versionName.orEmpty(), code)
     }
 
-    private suspend fun <T> withContextIo(block: suspend () -> T): T = kotlinx.coroutines.withContext(Dispatchers.IO, block)
+    private suspend fun <T> withContextIo(block: suspend kotlinx.coroutines.CoroutineScope.() -> T): T = kotlinx.coroutines.withContext(Dispatchers.IO, block)
 }

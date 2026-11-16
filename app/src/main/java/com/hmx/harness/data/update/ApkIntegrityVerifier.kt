@@ -12,7 +12,9 @@ class ApkIntegrityVerifier {
         require(MessageDigest.isEqual(actual.decodeHex(), release.apkSha256.lowercase().decodeHex())) {
             "The APK checksum did not match the signed release metadata."
         }
-        ZipFile(file).use { zip -> require(zip.getEntry("AndroidManifest.xml") != null) { "The staged file is not a valid APK." } }
+        runCatching {
+            ZipFile(file).use { zip -> require(zip.getEntry("AndroidManifest.xml") != null) { "The staged file is not a valid APK." } }
+        }.getOrElse { throw IllegalArgumentException("The staged file is not a valid APK.", it) }
     }
 
     companion object {
@@ -26,7 +28,7 @@ class ApkIntegrityVerifier {
                     digest.update(buffer, 0, count)
                 }
             }
-            return digest.joinToString("") { "%02x".format(it) }
+            return digest.digest().joinToString("") { "%02x".format(it) }
         }
 
         private fun String.decodeHex(): ByteArray = chunked(2).map { it.toInt(16).toByte() }.toByteArray()
